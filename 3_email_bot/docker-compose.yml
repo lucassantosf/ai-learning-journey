@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  email-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: email-bot
+    restart: unless-stopped
+    volumes:
+      # Mount token files for persistence
+      - ./token.json:/app/token.json
+      - ./token_send.json:/app/token_send.json
+      - ./credentials.json:/app/credentials.json
+      # Mount database directory for persistence
+      - ./db:/app/db
+    environment:
+      # Environment variables from .env file
+      - SEEDER_INCIDENTS_RECEIVER_EMAIL=${SEEDER_INCIDENTS_RECEIVER_EMAIL}
+      - SEEDER_MAILER=${SEEDER_MAILER}
+      - SEEDER_MAILER_PWD=${SEEDER_MAILER_PWD}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    # Healthcheck to ensure the container is running properly
+    healthcheck:
+      test: ["CMD", "ps", "aux", "|", "grep", "python"]
+      interval: 60s
+      timeout: 10s
+      retries: 3

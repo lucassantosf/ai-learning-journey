@@ -1,0 +1,13 @@
+# Common dependencies for all projects
+streamlit==1.32.0
+chromadb==0.4.22
+openai==1.12.0
+python-dotenv==1.0.0
+PyPDF2==3.0.1
+
+# Additional dependencies that might be needed
+# Uncomment as needed
+# langchain==0.1.0
+# transformers==4.36.2
+# torch==2.1.2
+# sentence-transformers==2.2.2
