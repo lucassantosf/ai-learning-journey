@@ -12,6 +12,7 @@ token_send.json
 # Environment files
 .env
 *.env
+token.json
 
 # IDE and editor files
 .vscode/
