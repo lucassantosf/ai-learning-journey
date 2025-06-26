@@ -1,3 +1,20 @@
-token.json
-token_send.json
+# Python virtual environment
+.venv/
+__pycache__/
+*.pyc
+
+# Google API Token Files
+utils/calendar_token.json
+utils/gmail_token.json
 credentials.json
+token_send.json
+
+# Environment files
+.env
+*.env
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo

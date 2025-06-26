@@ -3,6 +3,7 @@ import os.path
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+from google.auth.transport.requests import Request
 
 # Escopo de acesso de leitura da agenda
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
@@ -11,20 +12,22 @@ class GoogleCalendar:
     def __init__(self):
         self.creds = None
         # Token armazenado localmente após login
-        if os.path.exists('token.json'):
-            self.creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+        token_path = os.path.join(os.path.dirname(__file__), 'calendar_token.json')
+        if os.path.exists(token_path):
+            self.creds = Credentials.from_authorized_user_file(token_path, SCOPES)
 
         # Login e autorização via navegador (na 1ª execução)
         if not self.creds or not self.creds.valid:
             if self.creds and self.creds.expired and self.creds.refresh_token:
                 self.creds.refresh(Request())
             else:
+                credentials_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'credentials.json')
                 flow = InstalledAppFlow.from_client_secrets_file(
-                    'credentials.json', SCOPES)
+                    credentials_path, SCOPES)
                 self.creds = flow.run_local_server(port=0)
 
             # Salva token para reuso
-            with open('token.json', 'w') as token:
+            with open(token_path, 'w') as token:
                 token.write(self.creds.to_json())
 
         # Conexão com a API

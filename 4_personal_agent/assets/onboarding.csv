@@ -1,0 +1,33 @@
+SEMANAS,,PROJETO ,,Você está com 0% do onbording feito!,<Dev Nome>
+Trilhas,#,Atividade,Responsável,Data/Hora,"0,00%"
+1 - Familiarização,1,Verificar acesso ao e-mail,Desenvolvedor,,Não Feito
+,2,Solicitar acesso do painel AWS,Desenvolvedor,,Não Feito
+,3,"Configuração do ambiente local de desenvolvimento ( Docker, Node, NPM, Insomnia, Mysql Workbench, Vscode )",Desenvolvedor,,Não Feito
+,4,Clonar repositório backend e frontend,Desenvolvedor,,Não Feito
+,5,Configurar projetos back e front em sua máquina,Desenvolvedor,,Não Feito
+,6,Acesso da documentação da api backend - Insomnia,Desenvolvedor,,Não Feito
+,7,Tour Assistida - Apresentação do projeto admin e user-side,Mentor,,Não Feito
+,8,(Opcional) Configurar acesso da VPN em sua máquina,Desenvolvedor,,Não Feito
+,9,Solicitar acesso à IA,Desenvolvedor,,Não Feito
+,10,Apresentação da IA de seu projeto,Mentor,,Não Feito
+,11,Apresentação técnica de funcionamento da sua área (back ou front),Mentor,,Não Feito
+,12,Estudar Modelagem do projeto (Continuo),Desenvolvedor,,Não Feito
+,13,Estudar código do projeto backend (Continuo),Desenvolvedor,,Não Feito
+2 - Integrações Externas,14,"Tour Gravada - o dev precisa fazer uma gravação de si interagindo com o projeto com os principais pontos apresentados de regra de negócio
+na parte admin e user-side",Desenvolvedor,,Não Feito
+,15,Apresentação Integração XYZ,Mentor,,Não Feito
+,16,Acessar documentação de integração XYZ,Mentor,,Não Feito
+,17,Integração ABC,Mentor,,Não Feito
+,18,Integração DEF,Mentor,,
+,19,Integração GHJ,Mentor,,Não Feito
+,20,Orientações GIT,Mentor,,
+,21,Orientações do funcionamento e diferenças entre os ambientes de sandbox e produção e branchs,Mentor,,Não Feito
+,22,Orientações sobre deploys e pipelines,Mentor,,Não Feito
+3 - Primeiras Entregas,23,Verificar acesso do Jira,Desenvolvedor,,Não Feito
+,24,Apresentação do Jira e fluxo de trabalho desta ferramenta,Mentor,,Não Feito
+,25,Resolver primeiro card do tipo suporte ,Desenvolvedor,,Não Feito
+,26,Acesso ao banco de dados p/ conseguir realizar suporte,Desenvolvedor,,Não Feito
+4 - Primeiros Desenvolvimentos,27,Desenvolver primeiro item de backlog,Desenvolvedor,,Não Feito
+,-,,,,Não Feito
+,-,,,,Não Feito
+,-,,,,Não Feito
