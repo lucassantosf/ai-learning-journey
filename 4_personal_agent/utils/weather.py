@@ -3,7 +3,7 @@ import requests
 class Weather:
     BASE_URL = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
 
-    def __init__(self, user_agent, default_lat=-23.4773222, default_lon=-47.5078991):
+    def __init__(self, user_agent="MyWeatherApp/1.0 lucas@email.com", default_lat=-23.4773222, default_lon=-47.5078991):
         self.user_agent = user_agent
         self.default_lat = default_lat
         self.default_lon = default_lon
@@ -49,7 +49,7 @@ class Weather:
 
 # Example usage
 if __name__ == "__main__":
-    weather = Weather(user_agent="MyWeatherApp/1.0 lucas@email.com")
+    weather = Weather()
 
     forecast = weather.get_forecast()
     print("\n=== Processed Forecast ===")
