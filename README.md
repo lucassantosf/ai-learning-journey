@@ -9,6 +9,12 @@ The repository currently includes the following projects:
 1. **FAQ Bot** - A simple chatbot that answers questions based on predefined FAQs using RAG (Retrieval-Augmented Generation).
 2. **RAG PDF** - A document question-answering system that allows users to chat with their PDF documents.
 3. **Email Bot** - An automated email response system that uses AI to generate replies to customer inquiries.
+4. **Personal Agent** - An advanced AI-powered personal assistant with multi-tool integration, including:
+   - OpenAI GPT-4o conversational agent
+   - Google Calendar integration
+   - Gmail email reader
+   - Onboarding information retrieval
+   - Weather forecasting
 
 ## Setup Instructions
 
@@ -71,6 +77,24 @@ These projects use Ollama for local LLM inference. To install Ollama:
 
 Each project has its own directory with specific instructions and requirements. Here's how to run each one:
 
+Access the agent:
+- Web Interface: `http://localhost:5000`
+- Supports POST requests with JSON payload
+
+Prerequisites:
+- Docker
+- Docker Compose
+- OpenAI API Key
+- Google Cloud Project with enabled APIs
+
+Credentials Setup:
+1. Obtain OpenAI API key
+2. Create a Google Cloud Project
+3. Enable Google Calendar and Gmail APIs
+4. Create OAuth 2.0 credentials
+5. Download `credentials.json`
+6. Place credentials in `./credentials/` directory
+
 ### 1. FAQ Bot
 
 ```bash
@@ -121,6 +145,20 @@ cp .env.example .env
 python app.py
 ```
 
+### 4. Personal Agent
+
+```bash
+# Navigate to the project directory
+cd 4_personal_agent
+
+# Copy environment template and fill in credentials
+cp .env.example .env
+# Edit .env file to add OpenAI and Google API credentials
+
+# Build and run with Docker
+docker-compose up --build
+```
+
 ## Project Structure
 
 ```
@@ -140,6 +178,17 @@ ai-learning-journey/
 │   ├── README.md             # Project-specific documentation
 │   ├── requirements.txt      # Project-specific dependencies
 │   └── ...                   # Other project files
+│
+├── 4_personal_agent/         # Personal Agent project
+│   ├── app.py                # Main application logic
+│   ├── index.py              # Flask web interface
+│   ├── Dockerfile            # Docker configuration
+│   ├── docker-compose.yml    # Docker Compose setup
+│   ├── README.md             # Project documentation
+│   └── utils/                # Utility modules
+│       ├── google_calendar.py
+│       ├── google_gmail.py
+│       └── ...
 │
 ├── README.md                 # This file
 └── requirements.txt          # Common dependencies for all projects

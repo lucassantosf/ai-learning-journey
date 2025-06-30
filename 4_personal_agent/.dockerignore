@@ -1,0 +1,25 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+venv
+.venv
+
+# IDE
+.vscode
+.idea
+
+# Credentials and tokens (be careful with this)
+*token.json
+credentials.json
+
+# Misc
+.DS_Store
+*.log

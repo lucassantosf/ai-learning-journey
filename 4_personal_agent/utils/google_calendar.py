@@ -5,18 +5,18 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
 
-# Escopo de acesso de leitura da agenda
+# Read-only calendar access scope
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 
 class GoogleCalendar: 
     def __init__(self):
         self.creds = None
-        # Token armazenado localmente após login
+        # Token stored locally after login
         token_path = os.path.join(os.path.dirname(__file__), 'calendar_token.json')
         if os.path.exists(token_path):
             self.creds = Credentials.from_authorized_user_file(token_path, SCOPES)
 
-        # Login e autorização via navegador (na 1ª execução)
+        # Login and authorization via browser (on first execution)
         if not self.creds or not self.creds.valid:
             if self.creds and self.creds.expired and self.creds.refresh_token:
                 self.creds.refresh(Request())
@@ -26,27 +26,26 @@ class GoogleCalendar:
                     credentials_path, SCOPES)
                 self.creds = flow.run_local_server(port=0)
 
-            # Salva token para reuso
+            # Save token for reuse
             with open(token_path, 'w') as token:
                 token.write(self.creds.to_json())
 
-        # Conexão com a API
+        # API connection
         self.service = build('calendar', 'v3', credentials=self.creds)
 
     def consult(self):
-        agora = datetime.datetime.utcnow().isoformat() + 'Z'
-        eventos_resultado = self.service.events().list(calendarId='primary', timeMin=agora,
-                                                      maxResults=10, singleEvents=True,
-                                                      orderBy='startTime').execute()
-        eventos = eventos_resultado.get('items', [])
+        now = datetime.datetime.utcnow().isoformat() + 'Z'
+        events_result = self.service.events().list(calendarId='primary', timeMin=now,
+                                                   maxResults=10, singleEvents=True,
+                                                   orderBy='startTime').execute()
+        events = events_result.get('items', [])
         response = []
         
-        for evento in eventos:
-            inicio = evento['start'].get('dateTime', evento['start'].get('date'))
-            print(f"Evento: {evento['summary']} - Início: {inicio}")
+        for event in events:
+            start = event['start'].get('dateTime', event['start'].get('date'))
             response.append({
-                'summary': evento['summary'],
-                'start': inicio
+                'summary': event['summary'],
+                'start': start
             })
 
         return response    
@@ -54,4 +53,4 @@ class GoogleCalendar:
 if __name__ == '__main__':
     calendar = GoogleCalendar()
     events = calendar.consult()
-    print("Próximos eventos:", events)
+    print("Upcoming events:", events)

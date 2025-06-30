@@ -1,125 +1,118 @@
 # Personal Agent Project
 
 ## Overview
-A personal agent system with integrations for Google Calendar, Gmail, Onboarding, and other services.
-
-## Project Components
-
-### 1. Google API Integrations
-- **Google Calendar**: Fetch and manage calendar events
-- **Gmail**: Read and process emails
-
-#### Authentication
-- Separate token management for Calendar and Gmail
-- Dynamic path resolution for credentials
-- Secure token storage
-
-### 2. Onboarding Utility
-A flexible CSV reader and markdown generator for onboarding information.
-
-#### Features
-- Read CSV files as plain text or markdown
-- Handle empty cells and rows
-- Generate markdown tables dynamically
-- Configurable file path
-
-#### Usage Examples
-```python
-from utils.onboarding import Onboarding
-
-# Initialize with default or custom CSV path
-onboarding = Onboarding("./assets/onboarding.csv")
-
-# Read as plain text
-text = onboarding.read()
-
-# Read as markdown table
-markdown_table = onboarding.read_as_markdown()
-```
-
-## Google API Integration
-
-### Token File Security
-
-**IMPORTANT:** 
-- `calendar_token.json` and `gmail_token.json` contain sensitive authentication tokens
-- These files are unique to your personal Google account
-- **NEVER** commit these files to version control
-- The `.gitignore` is configured to prevent accidental commits
-
-### First-time Setup
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project
-3. Enable Google Calendar and Gmail APIs
-4. Create OAuth 2.0 credentials
-   - Choose "Desktop app" as the application type
-5. Download `credentials.json`
-6. Place `credentials.json` in the project root
-
-### Authentication
-- First run of each script will open a browser for Google OAuth
-- Tokens are stored separately for Calendar and Gmail
-- Subsequent runs will use the stored tokens
-
-### Troubleshooting
-- If authentication fails, delete the token files
-- Regenerate `credentials.json` if needed
-- Ensure you have the latest dependencies installed
-
-## Project Structure
-```
-4_personal_agent/
-├── credentials.json         # Google API credentials (git-ignored)
-├── assets/
-│   └── onboarding.csv       # Onboarding information CSV
-├── utils/
-│   ├── calendar_token.json  # Calendar-specific token (git-ignored)
-│   ├── gmail_token.json     # Gmail-specific token (git-ignored)
-│   ├── google_calendar.py   # Google Calendar integration
-│   ├── google_gmail.py      # Gmail integration
-│   └── onboarding.py        # Onboarding utility
-├── requirements.txt         # Project dependencies
-└── README.md               # This file
-```
-
-## Installation
-1. Create a virtual environment
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows, use `.venv\Scripts\activate`
-   ```
-
-2. Install dependencies
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-## Running Scripts
-- Google Calendar: `python -m utils.google_calendar`
-- Gmail: `python -m utils.google_gmail`
-- Onboarding: `python -m utils.onboarding`
+A sophisticated AI-powered personal assistant that integrates multiple tools and services to provide comprehensive support.
 
 ## Features
-- Separate token management for Calendar and Gmail
-- Secure token storage
-- Easy authentication process
-- Flexible API integration
-- Dynamic onboarding information processing
+- OpenAI GPT-4o powered conversational agent
+- Google Calendar integration
+- Gmail email reader
+- Onboarding information retrieval
+- Weather forecasting
+
+## Prerequisites
+- Docker
+- Docker Compose
+- OpenAI API Key
+- Google Cloud Project with enabled APIs
+
+## Setup and Installation
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/yourusername/personal-agent.git
+cd personal-agent
+```
+
+### 2. Configure Environment
+1. Copy the environment template
+```bash
+cp .env.example .env
+```
+
+2. Fill in required credentials in `.env`:
+- `OPENAI_API_KEY`: Your OpenAI API key
+- `GOOGLE_CALENDAR_CREDENTIALS_PATH`: Path to Google Calendar credentials
+- `GOOGLE_GMAIL_CREDENTIALS_PATH`: Path to Gmail credentials
+
+### 3. Google API Setup
+1. Create a Google Cloud Project
+2. Enable Google Calendar and Gmail APIs
+3. Create OAuth 2.0 credentials
+4. Download `credentials.json`
+5. Place credentials in `./credentials/` directory
+
+### 4. Build and Run
+```bash
+docker-compose up --build
+```
+
+## Accessing the Agent
+- Web Interface: `http://localhost:5000`
+- Supports POST requests to `/` with JSON payload
+
+### Example Request
+```json
+{
+    "prompt": "What are my upcoming calendar events?"
+}
+```
+
+## Tools Overview
+1. **Personal Calendar**
+   - Retrieve upcoming and past events
+   - Check schedules and appointments
+
+2. **Email Reader**
+   - Access recent unread emails
+   - Extract sender, subject, and content
+
+3. **Onboarding Information**
+   - Access organizational onboarding documents
+   - Retrieve company policies and guidelines
+
+4. **Weather Forecasting**
+   - Get current and upcoming weather information
+   - Plan activities based on meteorological data
+
+## Development
+
+### Local Development
+1. Create virtual environment
+```bash
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+```
+
+2. Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+3. Run the application
+```bash
+flask run
+```
+
+## Security Considerations
+- Never commit sensitive files like `.env` or `credentials.json`
+- Use environment variables for configuration
+- Rotate API keys regularly
+
+## Troubleshooting
+- Verify all API credentials
+- Check Docker logs for startup issues
+- Ensure network connectivity
 
 ## Contributing
-- Follow Google API best practices
-- Keep sensitive files out of version control
-- Update documentation when making changes
-- Maintain code quality and add tests
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
-## Security Notes
-- Tokens are stored in script-specific files
-- `credentials.json` should never be shared
-- Use environment variables for sensitive information
+## License
+[Specify your license here]
 
-## Potential Improvements
-- Add more robust error handling
-- Implement token refresh mechanisms
-- Create unified configuration management
-- Expand onboarding utility features
-
+## Contact
+[Your contact information]
