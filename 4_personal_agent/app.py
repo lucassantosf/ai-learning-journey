@@ -7,80 +7,125 @@ from utils.google_calendar import GoogleCalendar
 from utils.google_gmail import GoogleGmail
 from utils.onboarding import Onboarding
 from utils.weather import Weather
+from utils.logger import agent_logger
 
 class Agent:
     def __init__(self):
         """Initialize the OpenAI client with minimal error handling."""
         load_dotenv()
         
+        # Track tool usage
+        self.used_tools = []
+        
         openai_key = os.getenv("OPENAI_API_KEY")
-        if not openai_key: 
-            print("Error: OPENAI_API_KEY not found in .env file.")
-            print("Please set the OPENAI_API_KEY in your .env file.")
-            sys.exit(1)
+        if not openai_key:
+            # Log initialization error
+            agent_logger.log_error(
+                error_type='initialization_error', 
+                error_message='OpenAI API key not found',
+                context={'env_check': 'OPENAI_API_KEY missing'}
+            )
+            raise ValueError("OpenAI API key not found. Set OPENAI_API_KEY in .env file.")
 
-        # Create a custom httpx client without proxies
         try:
-            http_client = httpx.Client(
-                transport=httpx.HTTPTransport(
-                    retries=3,  # Optional: add retry mechanism
+            self.client = OpenAI(
+                api_key=openai_key,
+                http_client=httpx.Client(
+                    transport=httpx.HTTPTransport(retries=3)
                 )
             )
-
-            # Initialize OpenAI client with error handling
-            try:
-                self.client = OpenAI(
-                    api_key=openai_key,
-                    http_client=http_client
-                )
-                
-                # Perform a quick test to validate the client
-                try:
-                    self.client.models.list()
-                except Exception as auth_error:
-                    print(f"Authentication error: {auth_error}")
-                    print("Please check your API key and network connection.")
-                    sys.exit(1)
-            
-            except Exception as init_error:
-                print(f"Error initializing OpenAI client: {init_error}")
-                sys.exit(1)
-
-        except Exception as client_error:
-            print(f"Error creating HTTP client: {client_error}")
-            sys.exit(1)
+        except Exception as e:
+            # Log client initialization error
+            agent_logger.log_error(
+                error_type='client_initialization_error', 
+                error_message=str(e),
+                context={'api_key_present': bool(openai_key)}
+            )
+            raise
         
     # Tool: Google Calendar
     def calendar(self):
-        calendar = GoogleCalendar()
-        events = calendar.consult() 
-        return events
+        try:
+            calendar = GoogleCalendar()
+            events = calendar.consult() 
+            self.used_tools.append('calendar')
+            return events
+        except Exception as e:
+            agent_logger.log_error(
+                error_type='calendar_tool_error', 
+                error_message=str(e)
+            )
+            return f"Error accessing calendar: {str(e)}"
 
     # Tool: Google gmail
     def emails(self):
-        reader = GoogleGmail() 
-        emails = reader.read_emails(max_results=10, query='is:unread')
-        return emails
+        try:
+            reader = GoogleGmail() 
+            emails = reader.read_emails(max_results=10, query='is:unread')
+            self.used_tools.append('emails')
+            return emails
+        except Exception as e:
+            agent_logger.log_error(
+                error_type='email_tool_error', 
+                error_message=str(e)
+            )
+            return f"Error accessing emails: {str(e)}"
 
     # Tool: Onboarding Document
-    def onboarding(self):
-        obj = Onboarding()
-        # text = obj.read() # Read as plain text
-        return obj.read_as_markdown() # Read as markdown
+    def onboarding(self, query=None):
+        print(f"Accessing onboarding documents with query: {query}")  # Debug print
+        try:
+            obj = Onboarding()
+            
+            # If a specific query is provided, perform semantic search
+            if query:
+                print(f"Performing semantic search for query: {query}")  # Debug print
+                result = obj.semantic_search(query)
+                self.used_tools.append('onboarding_semantic_search')
+            else:
+                # Default to markdown representation if no query
+                result = obj.read_as_markdown()
+                self.used_tools.append('onboarding')
+            
+            return result
+        except Exception as e:
+            print(f"Error in onboarding method: {e}")  # Debug print
+            agent_logger.log_error(
+                error_type='onboarding_tool_error', 
+                error_message=str(e)
+            )
+            return f"Error accessing onboarding documents: {str(e)}"
 
     # Tool: Weather API 
     def weather(self):
-        weather = Weather()
-        forecast = weather.get_forecast()
-        return weather.process_forecast(forecast, hours=24)
+        try:
+            weather = Weather()
+            forecast = weather.get_forecast()
+            processed_forecast = weather.process_forecast(forecast, hours=24)
+            self.used_tools.append('weather')
+            return processed_forecast
+        except Exception as e:
+            agent_logger.log_error(
+                error_type='weather_tool_error', 
+                error_message=str(e)
+            )
+            return f"Error accessing weather information: {str(e)}"
 
     # Function to call GPT model with messages
-    def call_gpt(self,messages):
-        response = self.client.chat.completions.create(
-            model="gpt-4o",   
-            messages=messages
-        )
-        return response.choices[0].message.content
+    def call_gpt(self, messages):
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o",   
+                messages=messages
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            agent_logger.log_error(
+                error_type='gpt_call_error', 
+                error_message=str(e),
+                context={'model': 'gpt-4o'}
+            )
+            raise
 
     def call(self, user_question):
         messages = [
@@ -110,7 +155,7 @@ class Agent:
                 - If a tool is needed, use the specific ACTION prefix
                 - For Calendar: 'ACTION: CALENDAR'
                 - For Emails: 'ACTION: EMAILS'
-                - For Onboarding: 'ACTION: ONBOARDING'
+                - For Onboarding: 'ACTION: ONBOARDING [QUERY]'
                 - For Weather: 'ACTION: WEATHER'
                 - When you have a complete answer, use 'FINAL: <answer>'
 
@@ -123,30 +168,37 @@ class Agent:
         ]
 
         while True:
-            response = self.call_gpt(messages)
-            print("\nAgent:", response)
-            messages.append({"role": "assistant", "content": response})
+            try:
+                response = self.call_gpt(messages)
+                print("\nAgent:", response)
+                messages.append({"role": "assistant", "content": response})
 
-            if response.startswith("FINAL:"):
-                # print("\nAgent:", response.replace("FINAL:", "").strip())
-                return response.replace('FINAL:', '').strip()
-                break
-            elif response.startswith("ACTION: CALENDAR"):
-                data = response.replace("ACTION: CALENDAR", "").strip()
-                resultado = self.calendar()
-                messages.append({"role": "user", "content": f"RESULT: {resultado}"})
-            elif response.startswith("ACTION: EMAILS"):
-                topic = response.replace("ACTION: EMAILS", "").strip()
-                resultado = self.emails()
-                messages.append({"role": "user", "content": f"RESULT: {resultado}"})
-            elif response.startswith("ACTION: ONBOARDING"):
-                topic = response.replace("ACTION: ONBOARDING", "").strip()
-                resultado = self.onboarding()
-                messages.append({"role": "user", "content": f"RESULT: {resultado}"})
-            elif response.startswith("ACTION: WEATHER"):
-                topic = response.replace("ACTION: WEATHER", "").strip()
-                resultado = self.weather()
-                messages.append({"role": "user", "content": f"RESULT: {resultado}"})
-            else:
-                return "The agent doesn't know what to do. Ending."
-                break
+                if response.startswith("FINAL:"):
+                    return response.replace("FINAL:", "").strip()
+                elif response.startswith("ACTION: CALENDAR"):
+                    data = response.replace("ACTION: CALENDAR", "").strip()
+                    resultado = self.calendar()
+                    messages.append({"role": "user", "content": f"RESULT: {resultado}"})
+                elif response.startswith("ACTION: EMAILS"):
+                    topic = response.replace("ACTION: EMAILS", "").strip()
+                    resultado = self.emails()
+                    messages.append({"role": "user", "content": f"RESULT: {resultado}"})
+                elif response.startswith("ACTION: ONBOARDING"):
+                    # Extract query for semantic search
+                    query = response.replace("ACTION: ONBOARDING", "").strip()
+                    print(f"Extracted query: {query}")  # Debug print
+                    resultado = self.onboarding(query)
+                    messages.append({"role": "user", "content": f"RESULT: {resultado}"})
+                elif response.startswith("ACTION: WEATHER"):
+                    topic = response.replace("ACTION: WEATHER", "").strip()
+                    resultado = self.weather()
+                    messages.append({"role": "user", "content": f"RESULT: {resultado}"})
+                else:
+                    return "The agent doesn't know what to do. Ending."
+            except Exception as e:
+                agent_logger.log_error(
+                    error_type='agent_call_error', 
+                    error_message=str(e),
+                    context={'user_question': user_question}
+                )
+                return f"An error occurred: {str(e)}"

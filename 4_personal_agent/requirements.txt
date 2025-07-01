@@ -6,3 +6,11 @@ google-auth-oauthlib
 google-api-python-client
 beautifulsoup4
 requests
+# Logging and Monitoring
+structlog
+sentry-sdk
+prometheus-client
+
+# RAG and Embedding
+chromadb
+sentence-transformers
