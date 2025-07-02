@@ -2,6 +2,7 @@ from openai import OpenAI
 import httpx
 import os
 import sys
+import traceback
 from dotenv import load_dotenv
 from utils.google_calendar import GoogleCalendar
 from utils.google_gmail import GoogleGmail
@@ -73,28 +74,45 @@ class Agent:
 
     # Tool: Onboarding Document
     def onboarding(self, query=None):
-        print(f"Accessing onboarding documents with query: {query}")  # Debug print
         try:
-            obj = Onboarding()
-            
-            # If a specific query is provided, perform semantic search
+            # Preprocess query
             if query:
-                print(f"Performing semantic search for query: {query}")  # Debug print
-                result = obj.semantic_search(query)
-                self.used_tools.append('onboarding_semantic_search')
-            else:
-                # Default to markdown representation if no query
-                result = obj.read_as_markdown()
-                self.used_tools.append('onboarding')
+                query = query.strip('[]').strip().lower()
+
+            print(f"Received query for onboarding: {query}")  # Debug print
+            # Initialize Onboarding
+            try:
+                obj = Onboarding()
+            except Exception as init_error:
+                return f"Erro de inicialização do onboarding: {str(init_error)}"
+            
+            result = obj.read_as_markdown()
+            print(f"Initial onboarding result: {result}")  # Debug print
+            self.used_tools.append('onboarding')
+            return result
+
+            # else:
+            #     # Attempt semantic search for specific queries
+            #     try:
+            #         result = obj.semantic_search(query)
+            #         self.used_tools.append('onboarding_semantic_search')
+            #     except Exception:
+            #         # Fallback to markdown if semantic search fails
+            #         result = obj.read_as_markdown()
+            #         self.used_tools.append('onboarding')
+            
+            # # Ensure non-empty result
+            # if not result or result.strip() == "":
+            #     result = "Resumo do processo de onboarding não disponível."
             
             return result
+        
         except Exception as e:
-            print(f"Error in onboarding method: {e}")  # Debug print
             agent_logger.log_error(
-                error_type='onboarding_tool_error', 
+                error_type='onboarding_error', 
                 error_message=str(e)
             )
-            return f"Error accessing onboarding documents: {str(e)}"
+            return f"Erro inesperado ao acessar documentos de onboarding: {str(e)}"
 
     # Tool: Weather API 
     def weather(self):
@@ -155,7 +173,7 @@ class Agent:
                 - If a tool is needed, use the specific ACTION prefix
                 - For Calendar: 'ACTION: CALENDAR'
                 - For Emails: 'ACTION: EMAILS'
-                - For Onboarding: 'ACTION: ONBOARDING [QUERY]'
+                - For Onboarding: 'ACTION: ONBOARDING <QUERY>'
                 - For Weather: 'ACTION: WEATHER'
                 - When you have a complete answer, use 'FINAL: <answer>'
 

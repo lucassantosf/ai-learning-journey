@@ -8,46 +8,40 @@ from sentence_transformers import SentenceTransformer
 class Onboarding:
     def __init__(self, path="./assets/onboarding.csv"):
         try:
-            # Resolve absolute path
+            print("[DEBUG] Starting Onboarding.__init__")
             self.path = os.path.abspath(path)
-            print(f"Attempting to load CSV from: {self.path}")
-            
-            # Verify file exists and is readable
+            print("[DEBUG] CSV path resolved:", self.path)
+
             if not os.path.exists(self.path):
                 raise FileNotFoundError(f"Onboarding file not found: {self.path}")
-            
-            # Check file size and content
+            print("[DEBUG] CSV file exists")
+
             file_size = os.path.getsize(self.path)
-            print(f"CSV file size: {file_size} bytes")
-            
+            print("[DEBUG] CSV file size:", file_size)
+
             if file_size == 0:
                 raise ValueError("CSV file is empty")
-            
-            # Initialize embedding model
-            try:
-                self.model = SentenceTransformer('all-MiniLM-L6-v2')
-            except Exception as model_error:
-                print(f"Error initializing embedding model: {model_error}")
-                print(traceback.format_exc())
-                raise
-            
-            # Initialize ChromaDB client
-            try:
-                self.chroma_client = chromadb.Client()
-                self.collection = self.chroma_client.get_or_create_collection(name="onboarding_docs")
-            except Exception as chroma_error:
-                print(f"Error initializing ChromaDB: {chroma_error}")
-                print(traceback.format_exc())
-                raise
-            
-            # Load and embed documents if collection is empty
+            print("[DEBUG] CSV file not empty")
+
+            print("[DEBUG] Initializing embedding model...")
+            self.model = SentenceTransformer('all-MiniLM-L6-v2')
+            print("[DEBUG] Embedding model loaded")
+
+            print("[DEBUG] Initializing ChromaDB client...")
+            self.chroma_client = chromadb.Client()
+            print("[DEBUG] ChromaDB client initialized")
+
+            self.collection = self.chroma_client.get_or_create_collection(name="onboarding_docs")
+            print("[DEBUG] ChromaDB collection obtained")
+
             if self.collection.count() == 0:
+                print("[DEBUG] Collection empty, embedding documents...")
                 self.embed_documents()
-        
+                print("[DEBUG] Documents embedded")
+            
         except Exception as init_error:
-            print(f"Critical error in Onboarding initialization: {init_error}")
-            print(traceback.format_exc())
-            raise
+            print("[DEBUG] Exception during Onboarding.__init__:", init_error)
+            raise ValueError(f"Erro de inicialização do onboarding: {str(init_error)}")
 
     def preprocess_document(self, row):
         """
@@ -59,11 +53,26 @@ class Onboarding:
         Returns:
             str: Preprocessed document string
         """
-        # Remove empty or NaN values
-        row = row.dropna()
+        # Skip rows that are entirely empty or contain only empty strings
+        if row.isnull().all() or (row.astype(str) == '').all():
+            return None
         
-        # Convert to string and join
-        document = ' '.join(row.astype(str))
+        # Focus on meaningful columns (activity description)
+        meaningful_columns = [col for col in row.index if row[col] not in ['', 'Não Feito', '-']]
+        
+        # If no meaningful columns, return None
+        if not meaningful_columns:
+            return None
+        
+        # Combine meaningful columns
+        document_parts = []
+        for col in meaningful_columns:
+            value = str(row[col]).strip()
+            if value and value.lower() not in ['não feito', '-']:
+                document_parts.append(value)
+        
+        # Join document parts
+        document = ' '.join(document_parts)
         
         # Additional preprocessing
         document = document.lower()  # Convert to lowercase
@@ -80,42 +89,26 @@ class Onboarding:
             df = pd.read_csv(self.path, header=None)
             
             # Preprocess documents
-            documents = df.apply(self.preprocess_document, axis=1).tolist()
+            documents = df.apply(self.preprocess_document, axis=1).dropna().tolist()
             
             # Validate documents
             if not documents:
-                print("Warning: No documents found in the CSV file.")
-                return
+                return []
             
             # Generate embeddings
-            try:
-                embeddings = self.model.encode(documents).tolist()
-            except Exception as embed_error:
-                print(f"Error generating embeddings: {embed_error}")
-                print(traceback.format_exc())
-                return
+            embeddings = self.model.encode(documents).tolist()
             
             # Add to ChromaDB
-            try:
-                self.collection.add(
-                    embeddings=embeddings,
-                    documents=documents,
-                    ids=[f"doc_{i}" for i in range(len(documents))]
-                )
-                print(f"Successfully embedded {len(documents)} documents")
-                
-                # Debug: Print first few documents and their embeddings
-                print("First 3 documents:")
-                for i in range(min(3, len(documents))):
-                    print(f"Doc {i}: {documents[i]}")
-                    print(f"Embedding length: {len(embeddings[i])}")
-            except Exception as add_error:
-                print(f"Error adding documents to ChromaDB: {add_error}")
-                print(traceback.format_exc())
+            self.collection.add(
+                embeddings=embeddings,
+                documents=documents,
+                ids=[f"doc_{i}" for i in range(len(documents))]
+            )
+            
+            return documents
         
-        except Exception as general_error:
-            print(f"Unexpected error in embed_documents: {general_error}")
-            print(traceback.format_exc())
+        except Exception as e:
+            raise ValueError(f"Erro ao processar documentos de onboarding: {str(e)}")
 
     def search(self, query, n_results=3):
         """
@@ -131,49 +124,27 @@ class Onboarding:
         try:
             # Validate query
             if not query or not isinstance(query, str):
-                print("Invalid query provided")
                 return []
             
             # Preprocess query
             query = query.lower().strip()
             
-            # Debug: Print query details
-            print(f"Searching for query: '{query}'")
-            print(f"Total documents in collection: {self.collection.count()}")
+            # Ensure documents are embedded if collection is empty
+            if self.collection.count() == 0:
+                self.embed_documents()
             
             # Embed the query
-            try:
-                query_embedding = self.model.encode([query])[0].tolist()
-                print(f"Query embedding length: {len(query_embedding)}")
-            except Exception as embed_error:
-                print(f"Error embedding query: {embed_error}")
-                print(traceback.format_exc())
-                return []
+            query_embedding = self.model.encode([query])[0].tolist()
             
             # Perform semantic search
-            try:
-                results = self.collection.query(
-                    query_embeddings=[query_embedding],
-                    n_results=n_results
-                )
-                
-                # Debug: Print search results
-                print("Search Results:")
-                if results['documents'] and results['documents'][0]:
-                    for i, doc in enumerate(results['documents'][0], 1):
-                        print(f"Result {i}: {doc}")
-                else:
-                    print("No results found in the search.")
-                
-                return results['documents'][0] if results['documents'] and results['documents'][0] else []
-            except Exception as query_error:
-                print(f"Error performing semantic search: {query_error}")
-                print(traceback.format_exc())
-                return []
+            results = self.collection.query(
+                query_embeddings=[query_embedding],
+                n_results=n_results
+            )
+            
+            return results['documents'][0] if results['documents'] and results['documents'][0] else []
         
-        except Exception as general_error:
-            print(f"Unexpected error in search method: {general_error}")
-            print(traceback.format_exc())
+        except Exception:
             return []
 
     def semantic_search(self, query, n_results=3):
@@ -193,26 +164,77 @@ class Onboarding:
             
             # Validate search results
             if not search_results:
-                print(f"No results found for query: {query}")
-                return f"No results found for query: {query}"
+                return f"Nenhum resultado encontrado para a consulta: {query}"
             
             # Format results as markdown
-            markdown_results = ["# Onboarding Search Results"]
+            markdown_results = ["# Resultados da Busca de Onboarding"]
             for i, result in enumerate(search_results, 1):
-                markdown_results.append(f"\n## Result {i}")
-                markdown_results.append(f"**Relevance**: High")
-                markdown_results.append(f"**Content**:\n{result}")
+                markdown_results.append(f"\n## Resultado {i}")
+                markdown_results.append(f"**Relevância**: Alta")
+                markdown_results.append(f"**Conteúdo**:\n{result}")
+            
+            return "\n".join(markdown_results)
+        
+        except Exception:
+            return f"Erro ao realizar busca semântica para: {query}"
+
+    def read_as_markdown(self):
+        print('read_as_markdown called')  # Debug print
+        """
+        Provide a default markdown representation of onboarding documents
+        
+        Returns:
+            str: Markdown-formatted overview of onboarding documents
+        """
+        try:
+            # Read the entire CSV file
+            df = pd.read_csv(self.path, header=None)
+            
+            # Prepare a comprehensive overview
+            markdown_results = [
+                "# Resumo do Processo de Onboarding",
+                "\n## Visão Geral",
+                "O processo de onboarding é composto por várias etapas fundamentais para integração de novos membros da equipe.",
+                "\n## Etapas Principais:"
+            ]
+            
+            # Extract unique stages and activities
+            stages = {}
+            for _, row in df.iterrows():
+                # Assuming the first column contains stage information
+                stage = str(row.iloc[0]).strip()
+                if stage and stage.lower() not in ['não feito', '-', '']:
+                    if stage not in stages:
+                        stages[stage] = []
+                
+                # Try to extract activity from other columns
+                for col in row.index[1:]:
+                    activity = str(row.iloc[col]).strip()
+                    if activity and activity.lower() not in ['não feito', '-', '']:
+                        stages[stage].append(activity)
+            
+            # Add stages to markdown
+            for stage, activities in stages.items():
+                markdown_results.append(f"\n### {stage}")
+                for activity in activities:
+                    markdown_results.append(f"- {activity}")
+            
+            # Add total number of stages and activities
+            markdown_results.append(f"\n**Total de Etapas**: {len(stages)}")
+            markdown_results.append(f"**Total de Atividades**: {sum(len(activities) for activities in stages.values())}")
+            
+            # Add a closing note
+            markdown_results.append("\n## Observação")
+            markdown_results.append("Este resumo destaca as principais etapas e atividades do processo de onboarding. Cada etapa é crucial para a integração efetiva de novos membros da equipe.")
             
             return "\n".join(markdown_results)
         
         except Exception as e:
-            print(f"Error in semantic search: {e}")
-            print(traceback.format_exc())
-            return f"Error performing semantic search: {str(e)}"
+            return f"Erro ao gerar resumo do onboarding: {str(e)}"
 
 if __name__ == "__main__":
     obj = Onboarding()
     
-    # Example usage of semantic search
-    query = "tour assistida"
-    print(obj.semantic_search(query))
+    markdown = obj.read_as_markdown()
+
+    print('markdown',markdown)
