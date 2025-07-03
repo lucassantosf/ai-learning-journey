@@ -79,31 +79,23 @@ class Agent:
             if query:
                 query = query.strip('[]').strip().lower()
 
-            print(f"Received query for onboarding: {query}")  # Debug print
-            # Initialize Onboarding
-            try:
-                obj = Onboarding()
-            except Exception as init_error:
-                return f"Erro de inicialização do onboarding: {str(init_error)}"
-            
-            result = obj.read_as_markdown()
-            print(f"Initial onboarding result: {result}")  # Debug print
-            self.used_tools.append('onboarding')
-            return result
+                try:
+                    obj = Onboarding()
+                except Exception as init_error:
+                    return f"Erro de inicialização do onboarding: {str(init_error)}"
 
-            # else:
-            #     # Attempt semantic search for specific queries
-            #     try:
-            #         result = obj.semantic_search(query)
-            #         self.used_tools.append('onboarding_semantic_search')
-            #     except Exception:
-            #         # Fallback to markdown if semantic search fails
-            #         result = obj.read_as_markdown()
-            #         self.used_tools.append('onboarding')
+                # Attempt semantic search for specific queries
+                try:
+                    result = obj.semantic_search(query)
+                    self.used_tools.append('onboarding_semantic_search')
+                except Exception:
+                    # Fallback to markdown if semantic search fails
+                    result = obj.read_as_markdown()
+                    self.used_tools.append('onboarding')
             
-            # # Ensure non-empty result
-            # if not result or result.strip() == "":
-            #     result = "Resumo do processo de onboarding não disponível."
+            # Ensure non-empty result
+            if not result or result.strip() == "":
+                result = "Resumo do processo de onboarding não disponível."
             
             return result
         

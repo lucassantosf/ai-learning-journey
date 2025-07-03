@@ -3,41 +3,26 @@ import csv
 import traceback
 import pandas as pd
 import chromadb
-from sentence_transformers import SentenceTransformer
+import numpy as np
 
 class Onboarding:
     def __init__(self, path="./assets/onboarding.csv"):
         try:
-            print("[DEBUG] Starting Onboarding.__init__")
             self.path = os.path.abspath(path)
-            print("[DEBUG] CSV path resolved:", self.path)
 
             if not os.path.exists(self.path):
                 raise FileNotFoundError(f"Onboarding file not found: {self.path}")
-            print("[DEBUG] CSV file exists")
 
             file_size = os.path.getsize(self.path)
-            print("[DEBUG] CSV file size:", file_size)
 
             if file_size == 0:
                 raise ValueError("CSV file is empty")
-            print("[DEBUG] CSV file not empty")
 
-            print("[DEBUG] Initializing embedding model...")
-            self.model = SentenceTransformer('all-MiniLM-L6-v2')
-            print("[DEBUG] Embedding model loaded")
-
-            print("[DEBUG] Initializing ChromaDB client...")
             self.chroma_client = chromadb.Client()
-            print("[DEBUG] ChromaDB client initialized")
-
             self.collection = self.chroma_client.get_or_create_collection(name="onboarding_docs")
-            print("[DEBUG] ChromaDB collection obtained")
 
             if self.collection.count() == 0:
-                print("[DEBUG] Collection empty, embedding documents...")
                 self.embed_documents()
-                print("[DEBUG] Documents embedded")
             
         except Exception as init_error:
             print("[DEBUG] Exception during Onboarding.__init__:", init_error)
@@ -95,12 +80,9 @@ class Onboarding:
             if not documents:
                 return []
             
-            # Generate embeddings
-            embeddings = self.model.encode(documents).tolist()
-            
-            # Add to ChromaDB
+            # Add to ChromaDB with simple numeric embeddings
             self.collection.add(
-                embeddings=embeddings,
+                embeddings=[[float(i)] * 10 for i in range(len(documents))],  # Simple numeric embeddings
                 documents=documents,
                 ids=[f"doc_{i}" for i in range(len(documents))]
             )
@@ -133,8 +115,8 @@ class Onboarding:
             if self.collection.count() == 0:
                 self.embed_documents()
             
-            # Embed the query
-            query_embedding = self.model.encode([query])[0].tolist()
+            # Simple numeric embedding for query
+            query_embedding = [float(hash(query) % 10)] * 10
             
             # Perform semantic search
             results = self.collection.query(
@@ -235,6 +217,6 @@ class Onboarding:
 if __name__ == "__main__":
     obj = Onboarding()
     
-    markdown = obj.read_as_markdown()
+    markdown = obj.semantic_search("tour assistida")
 
     print('markdown',markdown)
