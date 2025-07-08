@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 from utils.SimplePDFProcessor import SimplePDFProcessor 
+from utils.Summarizer import Summarizer
 
 def main():
 
@@ -42,6 +43,7 @@ def main():
     if menu == "📄 Upload de PDF":
         pdf_file = st.file_uploader("Envie um PDF com o conteúdo de estudo", type=["pdf"])
         if pdf_file is not None:
+            
             # Aqui você extrairia o texto do PDF (simulação):
             processor = SimplePDFProcessor()
             with st.spinner("Processing PDF...."):
@@ -70,7 +72,35 @@ def main():
             st.success(f"PDF '{pdf_file.name}' carregado com sucesso!")
 
     elif menu == "📝 Inserir texto manualmente":
+
         content = st.text_area("Cole ou digite o conteúdo que deseja estudar", height=300)
+
+        if st.button("Processar texto"):
+            if content:
+                with st.spinner("Processando texto..."):
+                    # Simulação de processamento
+                    summarizer = Summarizer()
+                    summary = summarizer.generate_summary(content)
+                    questions = summarizer.generate_questions(content, num_questions)
+
+                    st.subheader("✅ Resumo gerado")
+                    st.write(summary)
+
+                    st.subheader("❓ Perguntas geradas")
+                    for q in questions:
+                        st.markdown(f"**Q:** {q['question']}  \n**A:** {q['answer']}")
+
+                    # Simulação de flashcards
+                    flashcards = [{"front": q["question"], "back": q["answer"]} for q in questions]
+                    
+                    st.subheader("🃏 Flashcards gerados")
+                    for f in flashcards:
+                        st.markdown(f"**Frente:** {f['front']}  \n**Verso:** {f['back']}")
+
+                st.success("Texto processado com sucesso!")
+            else:
+                st.error("Por favor, insira algum texto para processar.")
+
     elif menu == "🔍 Perguntar sobre conteúdo":
         user_question = st.text_input("Digite sua pergunta sobre o conteúdo:")
         if st.button("🔎 Responder"):
