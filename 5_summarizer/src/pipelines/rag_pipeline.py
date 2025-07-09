@@ -1,5 +1,5 @@
-from vector_store import VectorStore
-from llm_client import LLMClient
+from src.core.vector_store import VectorStore
+from src.core.llm import LLMClient
 
 class SimpleRAGSystem:
     """Sistema RAG simples com LLM + vetores"""

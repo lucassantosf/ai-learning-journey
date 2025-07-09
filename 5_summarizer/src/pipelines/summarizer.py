@@ -1,4 +1,4 @@
-from llm_client import LLMClient
+from src.core.llm import LLMClient
 
 class Summarizer:
     def __init__(self, use_openai=False):

@@ -1,7 +1,9 @@
 import streamlit as st
 import json
-from utils.SimplePDFProcessor import SimplePDFProcessor 
-from utils.Summarizer import Summarizer
+from src.pipelines.pdf_pipeline import process_pdf_file 
+from src.pipelines.rag_pipeline import SimpleRAGSystem 
+from src.pipelines.summarizer import Summarizer
+from src.core.chunking import TextChunker
 
 def main():
 
@@ -44,16 +46,15 @@ def main():
         pdf_file = st.file_uploader("Envie um PDF com o conteúdo de estudo", type=["pdf"])
         if pdf_file is not None:
             
-            # Aqui você extrairia o texto do PDF (simulação):
-            processor = SimplePDFProcessor()
+            # Aqui você extrairia o texto do PDF (simulação): 
             with st.spinner("Processing PDF...."):
                 try:
                     # Extract text
-                    text = processor.read_pdf(pdf_file)
-
+                    text = process_pdf_file(pdf_file)
                     st.text_area("Texto extraído do PDF", value=text, height=300)
  
                     # Create chunks 
+                    processor = TextChunker()
                     chunks = processor.create_chunks(text,pdf_file)
 
                     for chunk in chunks:

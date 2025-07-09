@@ -8,10 +8,18 @@ class LLMClient:
         self.model = model or ("gpt-4o" if use_openai else "llama3.2:1b")
 
         if use_openai:
+            from dotenv import load_dotenv
+
+            # Suppress tokenizer warnings
+            os.environ["TOKENIZERS_PARALLELISM"] = "false"
+            load_dotenv()
             api_key = os.getenv("OPENAI_API_KEY")
+
             if not api_key:
                 raise ValueError("OPENAI_API_KEY not found in environment.")
-            self.client = OpenAI(api_key=api_key)
+
+            os.environ["OPENAI_API_KEY"] = api_key  
+            self.client = OpenAI()
         else:
             self.ollama_url = "http://localhost:11434/api/chat"
 
