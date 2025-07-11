@@ -6,6 +6,9 @@ class TextChunker:
         self.chunk_overlap = chunk_overlap
 
     def create_chunks(self, text, source="unknown"):
+        if not isinstance(text, str):
+            raise TypeError(f"Expected text to be str, got {type(text)}")
+
         chunks, start = [], 0
 
         while start < len(text):

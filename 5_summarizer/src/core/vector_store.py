@@ -1,14 +1,15 @@
+from src.config import CHROMA_PERSIST_PATH, VECTOR_STORE_COLLECTION
 import chromadb
 from chromadb.utils import embedding_functions
 import os
 
 class VectorStore:
-    def __init__(self, collection_name="default", persist_path="./db/chroma_persist"):
-        os.makedirs(persist_path, exist_ok=True)
-        self.client = chromadb.PersistentClient(path=persist_path)
+    def __init__(self):
+        os.makedirs(CHROMA_PERSIST_PATH, exist_ok=True)
+        self.client = chromadb.PersistentClient(path=CHROMA_PERSIST_PATH)
         self.embedding_fn = embedding_functions.DefaultEmbeddingFunction()
         self.collection = self.client.get_or_create_collection(
-            name=collection_name, embedding_function=self.embedding_fn
+            name=VECTOR_STORE_COLLECTION, embedding_function=self.embedding_fn
         )
 
     def add_documents(self, chunks):

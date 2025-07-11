@@ -1,11 +1,11 @@
 from src.core.vector_store import VectorStore
 from src.core.llm import LLMClient
 
-class SimpleRAGSystem:
+class RAG:
     """Sistema RAG simples com LLM + vetores"""
 
     def __init__(self, use_openai=False):
-        self.vector_store = VectorStore("rag_collection")
+        self.vector_store = VectorStore()
         self.llm = LLMClient(use_openai=use_openai)
 
     def add_documents(self, chunks):
