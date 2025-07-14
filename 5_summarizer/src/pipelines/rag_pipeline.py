@@ -4,7 +4,7 @@ from src.core.llm import LLMClient
 class RAG:
     """Sistema RAG simples com LLM + vetores"""
 
-    def __init__(self, use_openai=False):
+    def __init__(self, use_openai=True):
         self.vector_store = VectorStore()
         self.llm = LLMClient(use_openai=use_openai)
 

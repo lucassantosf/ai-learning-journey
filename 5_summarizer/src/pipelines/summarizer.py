@@ -1,7 +1,7 @@
 from src.core.llm import LLMClient
 
 class Summarizer:
-    def __init__(self, use_openai=False):
+    def __init__(self, use_openai=True):
         self.llm = LLMClient(use_openai=use_openai)
 
     def generate_summary(self, text, max_words=200):
