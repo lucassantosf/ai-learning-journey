@@ -3,3 +3,5 @@ PyPDF2
 openai==1.90.0
 python-dotenv
 nltk
+streamlit-mic-recorder
+pydub
