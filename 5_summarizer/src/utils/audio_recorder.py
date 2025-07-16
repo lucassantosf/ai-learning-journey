@@ -4,6 +4,7 @@ import openai
 import os
 import io
 from dotenv import load_dotenv
+from src.core.llm import LLMClient
 
 load_dotenv()
 
@@ -36,12 +37,10 @@ if audio_data:
         audio_file = io.BytesIO(audio_data['bytes'])
         audio_file.name = "recorded_audio.wav"
 
-        transcript = openai.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio_file
-        )
+        transcript = LLMClient(use_openai=True).transcript(audio_file)
+        
         st.success("Transcrição Concluída!")
-        st.markdown(f"**Transcrição:**\n```\n{transcript.text}\n```")
+        st.markdown(f"**Transcrição:**\n```\n{transcript}\n```")
     except openai.APIError as e:
         st.error(f"Erro durante a transcrição: {e}")
         st.info("Por favor, garanta que sua chave da API OpenAI é válida e você tem créditos suficientes.")
