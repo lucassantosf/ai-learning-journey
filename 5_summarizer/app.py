@@ -13,16 +13,15 @@ def init_session_state():
     st.session_state.setdefault("rag_system", RAG())
     st.session_state.setdefault("summarizer", Summarizer())
     st.session_state.setdefault("transcription", TranscriptionService())
-    
-    st.session_state.setdefault("user_question_text", "") # Conteúdo atual do text_input
-    st.session_state.setdefault("response", "")
-    st.session_state.setdefault("text_input_key_counter", 0) # Para forçar a atualização do text_input
 
-    # Novo estado para controlar o áudio
-    st.session_state.setdefault("audio_to_process", None) # Armazena os bytes do áudio se houver
-    st.session_state.setdefault("processing_audio_step", "") # 'transcribing', 'querying_ai', ''
-    # Guarda o hash do áudio para saber se é um áudio novo ou o mesmo que já foi processado
-    st.session_state.setdefault("last_processed_audio_hash", None) 
+    st.session_state.setdefault("user_question_text", "")
+    st.session_state.setdefault("input_key_counter", 0)
+    st.session_state.setdefault("response", "")
+
+    st.session_state.setdefault("audio_to_process", None)
+    st.session_state.setdefault("processing_audio_step", "")
+    st.session_state.setdefault("last_processed_audio_hash", None)
+    st.session_state.setdefault("ready_to_query", False)
 
 def handle_pdf_upload():
     st.header("📄 Upload de PDF")
@@ -111,113 +110,82 @@ def process_query_and_get_response(query_text: str):
 
 # Callback para o input de texto (acionado ao digitar e pressionar Enter)
 def on_text_input_submit():
-    current_text = st.session_state[f"user_question_input_{st.session_state.text_input_key_counter}"].strip()
-    if current_text:
-        # Garante que não vamos reprocessar áudio se o texto foi digitado
-        st.session_state.audio_to_process = None 
+    query = st.session_state[f"user_question_input_{st.session_state.input_key_counter}"].strip()
+
+    if query:
+        st.session_state.audio_to_process = None
         st.session_state.processing_audio_step = ""
-        st.session_state.last_processed_audio_hash = None # Limpa o hash do áudio processado
-        
-        process_query_and_get_response(current_text)
-        st.session_state.user_question_text = "" # Limpa o input após processar o texto digitado
+        st.session_state.last_processed_audio_hash = None
+        st.session_state.response = ""
+        process_query_and_get_response(query)
+        st.session_state.user_question_text = ""  # Limpa input após enviar
+        st.session_state.input_key_counter += 1   # Atualiza o key para limpar o input visualmente
     else:
         st.toast("⚠️ Por favor, digite uma pergunta válida.")
-        st.session_state.user_question_text = ""
-
 
 def handle_Youtubeing():
     st.header("🔍 Perguntar sobre conteúdo")
 
-    col1, col2 = st.columns([8, 1])
+    col1, col2 = st.columns([9, 1])
 
     with col1:
         st.text_input(
-            "Digite sua pergunta (pressione Enter para perguntar):",
+            "Digite sua pergunta ou grave sua voz (pressione Enter para perguntar):",
             value=st.session_state.user_question_text,
-            key=f"user_question_input_{st.session_state.text_input_key_counter}",
+            key=f"user_question_input_{st.session_state.input_key_counter}",
             on_change=on_text_input_submit
         )
 
     with col2:
-        # mic_recorder sem callback direto, apenas retorna audio_data
-        current_mic_audio_data = mic_recorder(
-            start_prompt="🎤",
-            stop_prompt="✅",
-            key="mic_recorder"
-        )
-        
-    # Calcular um hash simples do áudio para verificar se é novo
-    current_audio_hash = None
-    if current_mic_audio_data and current_mic_audio_data.get('bytes'):
-        current_audio_hash = hash(current_mic_audio_data['bytes']) # Cria um hash dos bytes do áudio
+        audio_data = mic_recorder(start_prompt="🎤", stop_prompt="✅", key="mic_recorder")
 
-    # Lógica de processamento de áudio:
-    # Este bloco é executado SE:
-    # 1. Há audio_data (algo foi gravado).
-    # 2. NÃO há áudio já agendado para processamento (audio_to_process é None).
-    # 3. O áudio atual é DIFERENTE do último áudio que já foi processado (evita reprocessar o mesmo áudio).
-    if current_mic_audio_data and current_mic_audio_data.get('bytes') and \
-       not st.session_state.audio_to_process and \
-       current_audio_hash != st.session_state.last_processed_audio_hash:
-        
-        st.session_state.audio_to_process = current_mic_audio_data['bytes']
-        st.session_state.processing_audio_step = "transcribing" # Sinaliza o início da transcrição
-        st.session_state.last_processed_audio_hash = current_audio_hash # Armazena o hash do áudio que será processado
-        st.session_state.text_input_key_counter += 1 # Para resetar/atualizar o input visualmente
-        st.rerun() # Força o rerun para iniciar o processamento do áudio
+    # Processar áudio se tiver novo áudio
+    if audio_data and audio_data.get('bytes') and not st.session_state.get("processing_audio_step"):
+        current_hash = hash(audio_data["bytes"])
+        if current_hash != st.session_state.last_processed_audio_hash:
+            st.session_state.audio_to_process = audio_data['bytes']
+            st.session_state.processing_audio_step = "transcribing"
+            st.session_state.last_processed_audio_hash = current_hash
+            st.rerun()
 
-    # Bloco para processar o áudio (transcrição e consulta à IA)
-    # Este bloco só roda SE houver áudio para processar E a etapa estiver definida
-    if st.session_state.audio_to_process and st.session_state.processing_audio_step:
-        # Step 1: Transcribing
-        if st.session_state.processing_audio_step == "transcribing":
-            st.toast("🎙️ Transcrevendo áudio...")
-            st.audio(st.session_state.audio_to_process, format="audio/wav")
-
-            spinner_placeholder_transcribe = st.empty()
-            with spinner_placeholder_transcribe.container():
-                st.info("Transcrevendo áudio...") # Spinner fixo durante a transcrição
-            
+    # Transcrição do áudio
+    if st.session_state.processing_audio_step == "transcribing":
+        st.toast("🎙️ Transcrevendo áudio...")
+        st.audio(st.session_state.audio_to_process, format="audio/wav")
+        with st.spinner("Transcrevendo..."):
             try:
                 transcript = st.session_state.transcription.transcribe(io.BytesIO(st.session_state.audio_to_process))
-                st.session_state.user_question_text = transcript # Atualiza o input de texto
                 st.toast("✅ Transcrição concluída!")
 
-                # Mover para a próxima etapa: consulta à IA
-                st.session_state.processing_audio_step = "querying_ai"
-                st.rerun() # Força rerun para exibir a transcrição e iniciar consulta à IA
+                st.session_state.user_question_text = transcript
+                st.session_state.input_key_counter += 1
+
+                # 🔑 Acionamos este flag para disparar a IA após o rerun
+                st.session_state.ready_to_query = True
+
+                st.session_state.processing_audio_step = ""
+                st.session_state.audio_to_process = None
+
+                st.rerun()
+
             except Exception as e:
-                st.error(f"❌ Erro na transcrição: {e}")
-                st.session_state.response = f"Não foi possível transcrever: {e}"
-                st.session_state.user_question_text = ""
-                st.session_state.audio_to_process = None # Limpa o áudio
-                st.session_state.processing_audio_step = "" # Reseta a etapa
-                st.session_state.last_processed_audio_hash = None # Limpa o hash em caso de erro
-            finally:
-                spinner_placeholder_transcribe.empty() # Garante que o spinner de transcrição seja limpo
+                st.error(f"Erro transcrevendo: {e}")
+                st.session_state.processing_audio_step = ""
+                st.session_state.audio_to_process = None
 
-        # Step 2: Querying AI after transcription
-        elif st.session_state.processing_audio_step == "querying_ai":
-            query_text_from_audio = st.session_state.user_question_text
-            
-            if query_text_from_audio: # Garante que a transcrição não seja vazia
-                process_query_and_get_response(query_text_from_audio)
-                st.session_state.user_question_text = "" # Limpa o input após a resposta da IA
+    # ✅ Após a transcrição, consulta automática da IA
+    if st.session_state.ready_to_query:
+        query = st.session_state.user_question_text
+        process_query_and_get_response(query)
+        st.session_state.user_question_text = ""
+        st.session_state.ready_to_query = False
+        st.session_state.input_key_counter += 1
+        st.rerun()
 
-            # Reseta os estados do áudio para a próxima interação
-            st.session_state.audio_to_process = None
-            st.session_state.processing_audio_step = ""
-            st.session_state.last_processed_audio_hash = None # Limpa o hash após o processamento completo
-
-            # Um último rerun pode ser necessário para garantir que o input seja limpo e a resposta apareça
-            # Se a resposta não estiver aparecendo, descomente a linha abaixo.
-            # st.rerun() 
-
-    # Mostrar resposta
+    # Exibição da resposta
     if st.session_state.response:
         st.subheader("✅ Resposta encontrada:")
         st.write(st.session_state.response)
-
 
 def main():
     st.set_page_config(page_title="Summarizer", layout="wide")
