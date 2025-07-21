@@ -120,4 +120,4 @@ dmypy.json
 .pytype/
 
 # Cython debug symbols
-cython_debug/
+cython_debug/5_summarizer/db/chroma_persist/chroma.sqlite3
