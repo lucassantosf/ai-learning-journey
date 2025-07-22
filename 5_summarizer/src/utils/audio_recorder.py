@@ -8,44 +8,44 @@ from src.core.llm import LLMClient
 
 load_dotenv()
 
-# Configura sua chave da API OpenAI
-openai.api_key = os.getenv("OPENAI_API_KEY") or "SUA_CHAVE_API_OPENAI"
+# Configure your OpenAI API key
+openai.api_key = os.getenv("OPENAI_API_KEY") or "YOUR_OPENAI_API_KEY"
 
-st.set_page_config(page_title="Gravador e Transcritor", layout="centered")
+st.set_page_config(page_title="Audio Recorder and Transcriber", layout="centered")
 
-st.title("🎤 Gravador de Áudio e Transcritor Whisper")
+st.title("🎤 Audio Recorder and Whisper Transcriber")
 st.markdown("---")
 
-st.write("Clique no microfone para iniciar a gravação. Clique novamente para parar.")
+st.write("Click on the microphone to start recording. Click again to stop.")
 
-# Usando o mic_recorder com ícones e feedback visual
-# O componente agora pode exibir um ícone e mudar o texto
+# Using mic_recorder with icons and visual feedback
+# The component can now display an icon and change the text
 audio_data = mic_recorder(
-    start_prompt="🔴 Gravar", # Ícone de gravação e texto
-    stop_prompt="✅ Parar Gravação", # Ícone de sucesso e texto
+    start_prompt="🔴 Record", # Recording icon and text
+    stop_prompt="✅ Stop Recording", # Success icon and text
     key="mic_recorder",
-    # Opcional: para um visualizador simples de áudio durante a gravação
-    # show_visualizer=True # Depende da versão, pode não estar disponível ou não ser o que você espera
+    # Optional: for a simple audio visualizer during recording
+    # show_visualizer=True # Depends on version, may not be available or not be what you expect
 )
 
 if audio_data:
-    st.success("Áudio gravado com sucesso!")
+    st.success("Audio recorded successfully!")
     st.audio(audio_data['bytes'], format="audio/wav")
 
-    st.write("Transcrevendo áudio...")
+    st.write("Transcribing audio...")
     try:
         audio_file = io.BytesIO(audio_data['bytes'])
         audio_file.name = "recorded_audio.wav"
 
         transcript = LLMClient(use_openai=True).transcript(audio_file)
         
-        st.success("Transcrição Concluída!")
-        st.markdown(f"**Transcrição:**\n```\n{transcript}\n```")
+        st.success("Transcription Completed!")
+        st.markdown(f"**Transcription:**\n```\n{transcript}\n```")
     except openai.APIError as e:
-        st.error(f"Erro durante a transcrição: {e}")
-        st.info("Por favor, garanta que sua chave da API OpenAI é válida e você tem créditos suficientes.")
+        st.error(f"Error during transcription: {e}")
+        st.info("Please ensure your OpenAI API key is valid and you have sufficient credits.")
     except Exception as e:
-        st.error(f"Ocorreu um erro inesperado: {e}")
+        st.error(f"An unexpected error occurred: {e}")
 
 st.markdown("---")
-st.write("Este protótipo usa `streamlit-mic-recorder` para capturar áudio e o Whisper da OpenAI para transcrição.")
+st.write("This prototype uses `streamlit-mic-recorder` to capture audio and OpenAI's Whisper for transcription.")

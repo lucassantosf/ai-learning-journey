@@ -3,15 +3,15 @@ from PyPDF2 import PdfReader
 import re
 
 def clean_text(text):
-    """Limpa texto bruto do PDF."""
-    # Remove múltiplos espaços
+    """Clean raw PDF text."""
+    # Remove multiple spaces
     text = re.sub(r'\s+', ' ', text)
-    # Remove espaços extras antes de pontuação
+    # Remove extra spaces before punctuation
     text = re.sub(r'\s+([.,!?;])', r'\1', text)
     return text.strip()
 
 def process_pdf_file(pdf_stream):
-    """Lê PDF e retorna chunks limpos com metadados"""
+    """Read PDF and return clean chunks with metadata"""
     chunker = TextChunker()
 
     reader = PdfReader(pdf_stream)
@@ -26,7 +26,7 @@ def process_pdf_file(pdf_stream):
             all_text += page_text + "\n\n"
             page_chunks.append({"page": page_number, "text": page_text})
 
-    # Cria chunks semânticos do documento inteiro (evita corte página a página)
+    # Create semantic chunks of the entire document (avoid page-by-page cutting)
     chunks = chunker.create_chunks(all_text, source=getattr(pdf_stream, "name", "uploaded_file.pdf"))
 
-    return chunks 
+    return chunks

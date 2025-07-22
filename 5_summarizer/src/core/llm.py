@@ -10,7 +10,7 @@ class LLMClient:
 
         if self.use_openai:
             if not OPENAI_API_KEY:
-                raise ValueError("OPENAI_API_KEY não definido.")
+                raise ValueError("OPENAI_API_KEY not defined.")
             os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
             self.client = OpenAI()
         else:

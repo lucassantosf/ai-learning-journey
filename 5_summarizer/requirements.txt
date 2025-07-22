@@ -5,3 +5,6 @@ python-dotenv
 nltk
 streamlit-mic-recorder
 pydub
+chromadb
+sentence-transformers
+torch

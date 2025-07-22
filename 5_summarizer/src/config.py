@@ -2,13 +2,13 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-# Caminho onde o ChromaDB vai persistir os dados
+# Path where ChromaDB will persist data
 CHROMA_PERSIST_PATH = "./db/chroma_persist"
 
-# Nome da collection usada para embeddings
+# Collection name used for embeddings
 VECTOR_STORE_COLLECTION = "rag_collection"
 
-# Modelo padrão de embedding (caso você queira trocar futuramente)
+# Default embedding model (in case you want to change it in the future)
 EMBEDDING_MODEL = "default"
 
 USE_OPENAI = os.getenv("USE_OPENAI", "true").lower() == "true"
