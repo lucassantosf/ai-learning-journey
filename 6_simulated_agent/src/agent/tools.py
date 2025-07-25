@@ -1,23 +1,53 @@
-from src.repository.produto_mem_repo import ProdutoMemRepository
-from src.repository.pedido_mem_repo import PedidoMemRepository
-from src.repository.estoque_mem_repo import EstoqueMemRepository
+from dataclasses import dataclass
+from src.repository.product_mem_repo import ProductMemRepository
+from src.repository.order_mem_repo import OrderMemRepository
+from src.repository.inventory_mem_repo import InventoryMemRepository
+from src.models.order import Order, OrderItem
+from src.models.product import Product
 
-produto_repo = ProdutoMemRepository()
-pedido_repo = PedidoMemRepository()
-estoque_repo = EstoqueMemRepository(produto_repo)
+product_repo = ProductMemRepository()
+order_repo = OrderMemRepository()
+inventory_repo = InventoryMemRepository()
 
-def gerar_pedido(...):
-    # gera pedido...
-    repo.salvar(pedido)
+def generate_order(items, customer_id=None):
+    """
+    Generate a new order with given items
+    
+    :param items: List of order items
+    :param customer_id: Optional customer identifier
+    :return: Created order
+    """
+    # Implementation would depend on specific business logic
+    order = Order(
+        id=f"order_{len(order_repo.list_all()) + 1:03d}", 
+        items=items, 
+        creation_date=datetime.now()
+    )
+    order_repo.create(order)
+    return order
 
-def consultar_pedido(pedido_id):
-    return repo.buscar(pedido_id)
+def get_order(order_id):
+    """
+    Retrieve an order by its ID
+    
+    :param order_id: Unique identifier for the order
+    :return: Order details
+    """
+    return order_repo.find_by_id(order_id)
 
-def listar_pedidos():
-    return repo.listar()
+def list_orders():
+    """
+    List all existing orders
+    
+    :return: List of all orders
+    """
+    return order_repo.list_all()
 
-def avaliar_pedido(pedido_id, texto):
-    pedido = repo.buscar(pedido_id)
-    if pedido:
-        pedido["avaliacao"] = texto
-        repo.atualizar(pedido_id, pedido)
+def rate_order(order_id, rating):
+    """
+    Rate an existing order
+    
+    :param order_id: Unique identifier for the order
+    :param rating: Rating to assign to the order
+    """
+    order_repo.rate(order_id, rating)

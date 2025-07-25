@@ -1,84 +1,73 @@
-import sys
-import os
-from pprint import pprint
 from datetime import datetime
+from pprint import pprint
+from src.repository.product_mem_repo import ProductMemRepository
+from src.repository.order_mem_repo import OrderMemRepository
+from src.repository.inventory_mem_repo import InventoryMemRepository
+from src.models.product import Product
+from src.models.order import Order, OrderItem
+from src.models.inventory import Inventory
 
-# Caminho absoluto para o diretório pai da pasta 'tests'
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+def test_repositories():
+    # Initialize repositories
+    product_repo = ProductMemRepository()
+    order_repo = OrderMemRepository()
+    inventory_repo = InventoryMemRepository()
 
-# Adiciona 'src' à variável de path para imports funcionarem
-sys.path.append(os.path.join(BASE_DIR, "src"))
-
-from repository.produto_mem_repo import ProdutoMemRepository
-from repository.pedido_mem_repo import PedidoMemRepository
-from repository.estoque_mem_repo import EstoqueMemRepository
-from models.produto import Produto
-from models.pedido import Pedido, ItemPedido
-from models.estoque import Estoque
-
-
-def main():
-    # Inicializa os repositórios
-    produto_repo = ProdutoMemRepository()
-    pedido_repo = PedidoMemRepository()
-    estoque_repo = EstoqueMemRepository()
-
-    print("✅ Produtos disponíveis:")
-    pprint(produto_repo.listar_todos())
+    print("✅ Available Products:")
+    pprint(product_repo.list_all())
     print("\n")
 
-    # Teste: Criar produto novo
-    novo_produto = Produto(id="p011", nome="Headset Gamer RGB", quantidade=20, avaliacao_media=4.6)
-    produto_repo.criar(novo_produto)
-    print("➕ Produto criado:")
-    pprint(produto_repo.buscar_por_id("p011"))
+    # Test: Create new product
+    new_product = Product(id="p011", name="RGB Gaming Headset", quantity=20, average_rating=4.6, price=150)
+    product_repo.create(new_product)
+    print("➕ Product Created:")
+    pprint(product_repo.find_by_id("p011"))
     print("\n")
 
-    # Teste: Atualizar produto
-    produto_para_atualizar = produto_repo.buscar_por_id("p011")
-    produto_para_atualizar.avaliacao_media = 4.7
-    produto_repo.atualizar(produto_para_atualizar)
-    print("✏️ Produto atualizado (nota):")
-    pprint(produto_repo.buscar_por_id("p011"))
+    # Test: Update product
+    product_to_update = product_repo.find_by_id("p011")
+    product_to_update.average_rating = 4.7
+    product_repo.update(product_to_update)
+    print("✏️ Product Updated (rating):")
+    pprint(product_repo.find_by_id("p011"))
     print("\n")
 
-    # Teste: Adicionar estoque
-    estoque_repo.adicionar(Estoque(produto_id="p011", quantidade=5))
-    print("➕ Estoque após adicionar 5 unidades:")
-    pprint(estoque_repo.listar_todos())
+    # Test: Add inventory
+    inventory_repo.add(Inventory(product_id="p011", quantity=5))
+    print("➕ Inventory after adding 5 units:")
+    pprint(inventory_repo.list_all())
     print("\n")
 
-    # Teste: Remover estoque
-    estoque_repo.remover(produto_id="p011", quantidade=3)
-    print("➖ Estoque após remover 3 unidades:")
-    pprint(estoque_repo.listar_todos())
+    # Test: Remove inventory
+    inventory_repo.remove(product_id="p011", quantity=3)
+    print("➖ Inventory after removing 3 units:")
+    pprint(inventory_repo.list_all())
     print("\n")
 
-    # Teste: Criar pedido
-    itens = [ItemPedido(produto_id="p001", quantidade=1), ItemPedido(produto_id="p002", quantidade=2)]
-    novo_pedido = Pedido(id="pedido_001", itens=itens, data_criacao=datetime.now())
-    pedido_repo.criar(novo_pedido)
-    print("📦 Pedido criado:")
-    pprint(pedido_repo.buscar_por_id("pedido_001"))
+    # Test: Create order
+    items = [OrderItem(product_id="p001", quantity=1), OrderItem(product_id="p002", quantity=2)]
+    new_order = Order(id="order_001", items=items, creation_date=datetime.now())
+    order_repo.create(new_order)
+    print("📦 Order Created:")
+    pprint(order_repo.find_by_id("order_001"))
     print("\n")
 
-    # Teste: Avaliar pedido
-    pedido_repo.avaliar("pedido_001", 4.8)
-    print("🌟 Pedido avaliado:")
-    pprint(pedido_repo.buscar_por_id("pedido_001"))
+    # Test: Rate order
+    order_repo.rate("order_001", 4.8)
+    print("🌟 Order Rated:")
+    pprint(order_repo.find_by_id("order_001"))
     print("\n")
 
-    # Teste: Listar todos os pedidos
-    print("📋 Lista de todos os pedidos:")
-    pprint(pedido_repo.listar_todos())
+    # Test: List all orders
+    print("📋 List of All Orders:")
+    pprint(order_repo.list_all())
     print("\n")
 
-    # Teste: Deletar produto
-    produto_repo.deletar("p011")
-    print("❌ Produto deletado (p011):")
-    pprint(produto_repo.listar_todos())
+    # Test: Delete product
+    product_repo.delete("p011")
+    print("❌ Product Deleted (p011):")
+    pprint(product_repo.list_all())
     print("\n")
-
 
 if __name__ == "__main__":
-    main()
+    test_repositories()
