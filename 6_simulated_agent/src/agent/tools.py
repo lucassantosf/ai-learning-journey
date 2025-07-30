@@ -7,11 +7,17 @@ from src.models.order import Order, OrderItem
 from src.models.product import Product
 from src.models.inventory import Inventory
 from typing import List, Optional
+from src.utils.logger import setup_logger, log_execution_time
 
+# Inicializa logger
+logger = setup_logger()
+
+# Repositórios em memória
 product_repo = ProductMemRepository()
 order_repo = OrderMemRepository()
 inventory_repo = InventoryMemRepository()
 
+@log_execution_time
 def generate_order(items, customer_id=None):
     """
     Generate a new order with given items
@@ -20,7 +26,6 @@ def generate_order(items, customer_id=None):
     :param customer_id: Optional customer identifier
     :return: Created order
     """
-    # Validate inventory before creating order
     for item in items:
         product = product_repo.find_by_id(item.product_id)
         if not product:
@@ -34,7 +39,6 @@ def generate_order(items, customer_id=None):
         if not current_inventory or current_inventory.quantity < item.quantity:
             raise ValueError(f"Insufficient inventory for product {item.product_id}")
     
-    # Create order
     order = Order(
         id=f"order_{len(order_repo.list_all()) + 1:03d}", 
         items=items, 
@@ -43,91 +47,47 @@ def generate_order(items, customer_id=None):
     )
     order_repo.create(order)
     
-    # Update inventory
     for item in items:
         inventory_repo.remove(item.product_id, item.quantity)
     
     return order
 
+@log_execution_time
 def get_order(order_id):
-    """
-    Retrieve an order by its ID
-    
-    :param order_id: Unique identifier for the order
-    :return: Order details
-    """
     return order_repo.find_by_id(order_id)
 
+@log_execution_time
 def list_orders():
-    """
-    List all existing orders
-    
-    :return: List of all orders
-    """
     return order_repo.list_all()
 
+@log_execution_time
 def rate_order(order_id, rating):
-    """
-    Rate an existing order
-    
-    :param order_id: Unique identifier for the order
-    :param rating: Rating to assign to the order
-    """
     order_repo.rate(order_id, rating)
 
+@log_execution_time
 def list_products():
-    """
-    List all available products
-    
-    :return: List of all products
-    """
     return product_repo.list_all()
 
+@log_execution_time
 def get_product(product_id):
-    """
-    Retrieve a product by its ID
-    
-    :param product_id: Unique identifier for the product
-    :return: Product details
-    """
     return product_repo.find_by_id(product_id)
 
+@log_execution_time
 def list_inventory():
-    """
-    List current inventory levels
-    
-    :return: List of inventory items
-    """
     return inventory_repo.list_all()
 
+@log_execution_time
 def add_product(product: Product):
-    """
-    Add a new product to the repository
-    
-    :param product: Product to be added
-    """
     product_repo.create(product)
 
+@log_execution_time
 def update_product(product: Product):
-    """
-    Update an existing product
-    
-    :param product: Product with updated information
-    """
     product_repo.update(product)
 
+@log_execution_time
 def delete_product(product_id: str):
-    """
-    Delete a product from the repository
-    
-    :param product_id: Unique identifier of the product to delete
-    """
     product_repo.delete(product_id)
 
+@log_execution_time
 def update_inventory(inventory: Inventory):
-    """
-    Update inventory for a specific product
-    
-    :param inventory: Inventory item to update
-    """
     inventory_repo.add(inventory)

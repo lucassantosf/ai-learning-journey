@@ -1,21 +1,25 @@
 import os
+import re
 import httpx
 from dotenv import load_dotenv
-
-# LLM Providers
-from openai import OpenAI
 import ollama
 import google.generativeai as genai
-import re
-from src.agent import tools  # ← importa suas funções reais
+from openai import OpenAI
+
+from src.agent import tools
+from src.agent.memory import Memory
+from src.utils.logger import setup_logger, log_execution_time
 
 class Agent:
     def __init__(self, provider='openai'): 
         load_dotenv()
+        self.logger = setup_logger()
+        self.logger.info(f"🔧 Initializing Agent with provider: {provider}")
+        
         self.used_tools = []
         self._load_tools()
-        
-        # Set up the appropriate client based on the provider
+        self.memory = Memory(max_messages=30)
+
         if provider == 'openai':
             self._setup_openai()
         elif provider == 'ollama':
@@ -26,7 +30,6 @@ class Agent:
             raise ValueError(f"Unsupported provider: {provider}. Choose 'openai', 'ollama', or 'gemini'.")
 
     def _load_tools(self):
-        """Dicionário de funções que o agente pode executar"""
         self.TOOLS = {
             "list_products": tools.list_products,
             "get_product": tools.get_product,
@@ -42,7 +45,6 @@ class Agent:
         }
 
     def _setup_openai(self):
-        """Set up OpenAI client."""
         openai_key = os.getenv("OPENAI_API_KEY")
         if not openai_key:
             raise ValueError("OpenAI API key not found in environment variables.")
@@ -50,26 +52,25 @@ class Agent:
         try:
             self.client = OpenAI(
                 api_key=openai_key,
-                http_client=httpx.Client(
-                    transport=httpx.HTTPTransport(retries=3)
-                )
+                http_client=httpx.Client(transport=httpx.HTTPTransport(retries=3))
             )
             self.provider = 'openai'
+            self.logger.info("OpenAI client initialized")
         except Exception as e:
-            raise RuntimeError(f"Failed to initialize OpenAI client: {e}")
+            self.logger.error(f"Failed to initialize OpenAI client: {e}")
+            raise
 
     def _setup_ollama(self):
-        """Set up Ollama client."""
         try:
-            # Verify Ollama is running and the model is available
             ollama.chat(model='llama3.2:1b', messages=[{'role': 'user', 'content': 'Hello'}])
             self.client = ollama
             self.provider = 'ollama'
+            self.logger.info("Ollama client initialized")
         except Exception as e:
-            raise RuntimeError(f"Failed to initialize Ollama client: {e}")
+            self.logger.error(f"Failed to initialize Ollama client: {e}")
+            raise
 
     def _setup_gemini(self):
-        """Set up Google Gemini client."""
         gemini_key = os.getenv("GEMINI_API_KEY")
         if not gemini_key:
             raise ValueError("Gemini API key not found in environment variables.")
@@ -78,58 +79,73 @@ class Agent:
             genai.configure(api_key=gemini_key)
             self.client = genai.GenerativeModel('gemini-2.0-flash')
             self.provider = 'gemini'
+            self.logger.info("Gemini client initialized")
         except Exception as e:
-            raise RuntimeError(f"Failed to initialize Gemini client: {e}")
+            self.logger.error(f"Failed to initialize Gemini client: {e}")
+            raise
 
     def _extract_action(self, response: str) -> str | None:
         match = re.search(r"ACTION:\s*(.+)", response)
-        return match.group(1).strip() if match else None
+        if match:
+            action = match.group(1).strip()
+            self.logger.info(f"Action detected: {action}")
+            return action
+        self.logger.debug("No action detected")
+        return None
 
     def _run_tool(self, action_str: str):
+        self.logger.info(f"⚙️ Executing tool: {action_str}")
         try:
             result = eval(action_str, {}, self.TOOLS)
             self.used_tools.append(action_str)
+            self.logger.info(f"Tool executed successfully: {action_str}")
             return result
         except Exception as e:
-            return f"❌ Erro ao executar {action_str}: {str(e)}"
+            error_msg = f"Error running tool {action_str}: {e}"
+            self.logger.error(error_msg)
+            return error_msg
 
     def _send_to_model(self, messages):
-        if self.provider == 'openai':
-            return self.client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=messages
-            ).choices[0].message.content
+        self.logger.debug(f"Sending messages to model: {messages}")
+        try:
+            if self.provider == 'openai':
+                content = self.client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=messages
+                ).choices[0].message.content
+            elif self.provider == 'ollama':
+                content = self.client.chat(
+                    model='llama3.2:1b',
+                    messages=messages
+                )['message']['content']
+            elif self.provider == 'gemini':
+                combined = "\n".join([f"{m['role'].capitalize()}: {m['content']}" for m in messages])
+                content = self.client.generate_content(combined).text
 
-        elif self.provider == 'ollama':
-            return self.client.chat(
-                model='llama3.2:1b',
-                messages=messages
-            )['message']['content']
+            self.logger.debug(f"Model response: {content}")
+            return content
 
-        elif self.provider == 'gemini':
-            combined_message = "\n".join([f"{m['role'].capitalize()}: {m['content']}" for m in messages])
-            return self.client.generate_content(combined_message).text
-    
+        except Exception as e:
+            self.logger.error(f"Error sending message to model: {e}")
+            raise
+
+    @log_execution_time
     def call(self, user_question):
-        system_message = self._system_prompt()
-        messages = [
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": user_question}
-        ]
+        self.logger.info(f"User asked: {user_question}")
+        self.memory.add_message("system", self._system_prompt())
+        self.memory.add_message("user", user_question)
 
         while True:
+            messages = self.memory.get_context()
             response = self._send_to_model(messages)
-            action = self._extract_action(response)
+            self.memory.add_message("assistant", response)
 
+            action = self._extract_action(response)
             if action:
                 tool_result = self._run_tool(action)
-                messages.append({"role": "assistant", "content": response})
-                messages.append({
-                    "role": "function",
-                    "name": action,
-                    "content": str(tool_result)
-                })
+                self.memory.add_message("function", str(tool_result), name=action)
             else:
+                self.logger.info(f"Final response to user: {response}")
                 return response
 
     def _system_prompt(self):
