@@ -7,3 +7,4 @@ class Product:
     price: float
     quantity: int
     average_rating: float
+    image_url: str = None
