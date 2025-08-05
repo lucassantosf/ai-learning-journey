@@ -1,11 +1,7 @@
 import streamlit as st
-import re
 import uuid
-from streamlit_option_menu import option_menu
 from src.agent.agent import Agent
-from src.utils.helpers import get_products
 
-# Modelos disponíveis
 AVAILABLE_MODELS = ['gemini', 'openai', 'llama']
 
 def initialize_state():
@@ -34,20 +30,15 @@ def add_message(role, content):
 
 def display_chat_messages():
     for message in get_current_chat_history():
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-def detect_product_list(response):
-    patterns = [r'Lista de Produtos:', r'Catálogo de Produtos:', r'Produtos Disponíveis:', r'Nossos Produtos:']
-    for pattern in patterns:
-        if re.search(pattern, response, re.IGNORECASE):
-            return re.findall(r'p\d{3}', response)
-    return None
+        if message["role"] == "user":
+            st.markdown(f"<div class='user-msg'>{message['content']}</div>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<div class='assistant-msg'>{message['content']}</div>", unsafe_allow_html=True)
 
 def header_controls():
     col1, col2 = st.columns([6, 1])
     with col1:
-        st.markdown("### 🤖 Agente Simulado com IA")
+        st.markdown("<h3 style='color:white;'>🤖 Agente Simulado com IA</h3>", unsafe_allow_html=True)
     with col2:
         selected_model = st.selectbox(
             "Modelo",
@@ -62,39 +53,139 @@ def header_controls():
             st.toast(f"Modelo alterado para: {selected_model}")
 
 def sidebar_controls():
+    st.markdown(
+        """
+        <style>
+        [data-testid="stSidebar"] {
+            background-color: #202123;
+            padding: 0 10px;
+        }
+        .chat-item {
+            padding: 10px 14px;
+            margin: 4px 0;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-size: 15px;
+            background-color: #202123;
+            transition: background 0.2s ease;
+            text-align: left;
+        }
+        .chat-item:hover {
+            background-color: #2A2B32;
+        }
+        .chat-item-selected {
+            background-color: #343541;
+        }
+        .sidebar-title {
+            color: #FFFFFF;
+            font-size: 16px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .new-chat-btn {
+            width: 100%;
+            background-color: #343541 !important;
+            color: white !important;
+            border: none !important;
+            font-size: 15px !important;
+            padding: 8px 0;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+        .new-chat-btn:hover {
+            background-color: #2A2B32 !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
     with st.sidebar:
-        if st.button("Novo chat"):
+        if st.button("➕ Novo chat", key="new_chat", use_container_width=True):
             new_id = str(uuid.uuid4())
             st.session_state.chat_sessions[new_id] = []
             st.session_state.current_chat = new_id
+            st.rerun()
 
-        st.title("Chats")
+        st.markdown("<div class='sidebar-title'>Chats</div>", unsafe_allow_html=True)
 
         chat_ids = list(st.session_state.chat_sessions.keys())
-        chat_labels = [f"Conversa {chat_id[:8]}" for chat_id in chat_ids]
+        for chat_id in chat_ids:
+            label = f"Conversa {chat_id[:8]}"
+            class_name = "chat-item"
+            if chat_id == st.session_state.current_chat:
+                class_name += " chat-item-selected"
 
-        selected_label = option_menu(
-            menu_title=None,
-            options=chat_labels,
-            default_index=chat_ids.index(st.session_state.current_chat) if st.session_state.current_chat in chat_ids else 0,
-            orientation="vertical",
-            styles={
-                "container": {"padding": "0!important", "background-color": "#f0f2f6"},
-                "nav-link": {"font-size": "16px", "text-align": "left", "margin": "0px", "--hover-color": "#ddd"},
-                "nav-link-selected": {"background-color": "#0d6efd", "color": "white"},
-            },
-        )
+            # Cada item agora é um botão invisível estilizado com HTML
+            if st.button(label, key=f"chat_{chat_id}", use_container_width=True):
+                st.session_state.current_chat = chat_id
+                st.rerun()
 
-        selected_index = chat_labels.index(selected_label)
-        st.session_state.current_chat = chat_ids[selected_index]
+def inject_dark_mode_css():
+    st.markdown(
+        """
+        <style>
+        body, [data-testid="stAppViewContainer"] {
+            background-color: #343541 !important;
+            color: white !important;
+        }
+        [data-testid="stHeader"] {background: none;}
 
-        st.markdown("---")
-        st.markdown(f"🔁 Modelo atual: **{st.session_state.agent_model}**")
-        st.markdown(f"🆔 ID atual: `{st.session_state.current_chat[:8]}`")
+        /* Sidebar fixa e sem resizer */
+        [data-testid="stSidebar"] {
+            background-color: #202123;
+            width: 300px !important;
+            min-width: 300px !important;
+            max-width: 300px !important;
+        }
+        [data-testid="stSidebarResizer"] {
+            display: none !important;
+        }
+        button[kind="header"] {
+            display: none !important;
+        }
+        [data-testid="collapsedControl"] {
+            display: none !important;
+        }
+        /* Remove efeito de cursor de redimensionamento */
+        section[data-testid="stSidebar"] + section {
+            cursor: default !important;
+        }
+
+        div.stChatInput textarea {
+            background-color: #40414F !important;
+            color: white !important;
+            border: 1px solid #555 !important;
+        }
+
+        .user-msg {
+            background-color: #0D6EFD;
+            color: white;
+            padding: 12px;
+            border-radius: 12px;
+            margin: 8px 0;
+            max-width: 80%;
+            align-self: flex-end;
+        }
+        .assistant-msg {
+            background-color: #444654;
+            color: #E0E0E0;
+            padding: 12px;
+            border-radius: 12px;
+            margin: 8px 0;
+            max-width: 80%;
+            align-self: flex-start;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
 def main():
-    st.set_page_config(page_title="Agente Simulado", page_icon="🤖", layout="wide")
+    st.set_page_config(page_title="Agente Simulado", page_icon="🤖", layout="wide", initial_sidebar_state="expanded")
 
+    inject_dark_mode_css()
     initialize_state()
     sidebar_controls()
     header_controls()
@@ -104,14 +195,12 @@ def main():
 
     user_input = st.chat_input("Digite a tarefa que deseja que o agente realize")
     if user_input:
-        with st.chat_message("user"):
-            st.markdown(user_input)
+        st.markdown(f"<div class='user-msg'>{user_input}</div>", unsafe_allow_html=True)
         add_message("user", user_input)
 
-        with st.chat_message("assistant"):
-            with st.spinner("Executando..."):
-                response = agent.call(user_input)
-                st.markdown(response)
+        with st.spinner("Executando..."):
+            response = agent.call(user_input)
+            st.markdown(f"<div class='assistant-msg'>{response}</div>", unsafe_allow_html=True)
 
         add_message("assistant", response)
 
