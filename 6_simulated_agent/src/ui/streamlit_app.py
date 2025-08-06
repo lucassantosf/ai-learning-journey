@@ -12,9 +12,7 @@ def initialize_state():
     if 'chat_sessions' not in st.session_state:
         st.session_state.chat_sessions = {}
     if 'current_chat' not in st.session_state:
-        new_id = str(uuid.uuid4())
-        st.session_state.current_chat = new_id
-        st.session_state.chat_sessions[new_id] = []
+        st.session_state.current_chat = None  # Começa sem nenhum chat selecionado
 
 def get_agent():
     if st.session_state.agent_model != st.session_state.get('last_model_used'):
@@ -23,12 +21,26 @@ def get_agent():
     return st.session_state.agent
 
 def get_current_chat_history():
-    return st.session_state.chat_sessions[st.session_state.current_chat]
+    return st.session_state.chat_sessions[st.session_state.current_chat]["messages"]
+
+def is_relevant_message(msg):
+    return msg and msg.strip() and msg.lower().strip() not in ["oi", "olá", "bom dia", "boa noite", ""]
 
 def add_message(role, content):
-    st.session_state.chat_sessions[st.session_state.current_chat].append({"role": role, "content": content})
+    # Se não existir chat, cria um agora
+    if not st.session_state.current_chat:
+        new_id = str(uuid.uuid4())
+        st.session_state.current_chat = new_id
+        st.session_state.chat_sessions[new_id] = {"messages": [], "has_content": False}
+
+    chat = st.session_state.chat_sessions[st.session_state.current_chat]
+    chat["messages"].append({"role": role, "content": content})
+    if is_relevant_message(content):
+        chat["has_content"] = True
 
 def display_chat_messages():
+    if not st.session_state.current_chat:
+        return
     for message in get_current_chat_history():
         if message["role"] == "user":
             st.markdown(f"<div class='user-msg'>{message['content']}</div>", unsafe_allow_html=True)
@@ -103,24 +115,37 @@ def sidebar_controls():
 
     with st.sidebar:
         if st.button("➕ Novo chat", key="new_chat", use_container_width=True):
-            new_id = str(uuid.uuid4())
-            st.session_state.chat_sessions[new_id] = []
-            st.session_state.current_chat = new_id
-            st.rerun()
+            current_chat = st.session_state.current_chat
+            current_data = st.session_state.chat_sessions.get(current_chat)
 
-        st.markdown("<div class='sidebar-title'>Chats</div>", unsafe_allow_html=True)
-
-        chat_ids = list(st.session_state.chat_sessions.keys())
-        for chat_id in chat_ids:
-            label = f"Conversa {chat_id[:8]}"
-            class_name = "chat-item"
-            if chat_id == st.session_state.current_chat:
-                class_name += " chat-item-selected"
-
-            # Cada item agora é um botão invisível estilizado com HTML
-            if st.button(label, key=f"chat_{chat_id}", use_container_width=True):
-                st.session_state.current_chat = chat_id
+            # Só cria novo se a conversa atual tiver conteúdo
+            if current_chat is None or (current_data and current_data["has_content"]):
+                new_id = str(uuid.uuid4())
+                st.session_state.chat_sessions[new_id] = {"messages": [], "has_content": False}
+                st.session_state.current_chat = new_id
                 st.rerun()
+
+        if st.session_state.chat_sessions:
+            st.markdown("<div class='sidebar-title'>Chats</div>", unsafe_allow_html=True)
+
+            chat_ids = list(st.session_state.chat_sessions.keys())
+            for chat_id in chat_ids:
+                label = f"Conversa {chat_id[:8]}"
+                class_name = "chat-item"
+                if chat_id == st.session_state.current_chat:
+                    class_name += " chat-item-selected"
+
+                if st.button(label, key=f"chat_{chat_id}", use_container_width=True):
+                    current_chat = st.session_state.current_chat
+                    current_data = st.session_state.chat_sessions.get(current_chat)
+
+                    # Só deleta se for diferente da que vai selecionar e estiver vazia
+                    if current_chat != chat_id and current_data and not current_data["has_content"]:
+                        del st.session_state.chat_sessions[current_chat]
+
+                    if chat_id in st.session_state.chat_sessions:
+                        st.session_state.current_chat = chat_id
+                    st.rerun()
 
 def inject_dark_mode_css():
     st.markdown(
@@ -148,7 +173,6 @@ def inject_dark_mode_css():
         [data-testid="collapsedControl"] {
             display: none !important;
         }
-        /* Remove efeito de cursor de redimensionamento */
         section[data-testid="stSidebar"] + section {
             cursor: default !important;
         }
