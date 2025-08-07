@@ -18,14 +18,21 @@ order_repo = OrderMemRepository()
 inventory_repo = InventoryMemRepository()
 
 @log_execution_time
-def generate_order(items, customer_id=None):
+def generate_order(items, user_id=None, customer_name=None):
     """
     Generate a new order with given items
     
     :param items: List of order items
-    :param customer_id: Optional customer identifier
+    :param user_id: Unique user identifier (required)
+    :param customer_name: Full name of the customer (required)
     :return: Created order
+    :raises ValueError: If user identification is incomplete
     """
+    # Validate user identification
+    if not user_id or not customer_name:
+        raise ValueError("User identification is required. Please provide both user_id and customer_name.")
+
+    # Validate product availability and inventory
     for item in items:
         product = product_repo.find_by_id(item.product_id)
         if not product:
@@ -39,14 +46,17 @@ def generate_order(items, customer_id=None):
         if not current_inventory or current_inventory.quantity < item.quantity:
             raise ValueError(f"Insufficient inventory for product {item.product_id}")
     
+    # Generate order with full user identification
     order = Order(
         id=f"order_{len(order_repo.list_all()) + 1:03d}", 
+        user_id=user_id,
+        customer_name=customer_name,
         items=items, 
-        creation_date=datetime.now(),
-        customer_id=customer_id
+        creation_date=datetime.now()
     )
     order_repo.create(order)
     
+    # Update inventory
     for item in items:
         inventory_repo.remove(item.product_id, item.quantity)
     

@@ -224,10 +224,14 @@ class Agent:
            - Track inventory changes meticulously
 
         3. Order Processing:
-           - Generate orders with complete OrderItem details
-           - Include customer_id when possible
+           - MANDATORY: Collect user identification BEFORE generating any order
+             * Require full name (customer_name)
+             * Require unique identifier (user_id: CPF, email, or phone)
+           - Generate orders ONLY after user identification is confirmed
            - Validate each item's availability before order creation
+           - Include customer_name and user_id in order generation
            - Use rating system to collect customer feedback
+           - Reject order generation if user identification is incomplete
 
         4. Error Handling Protocols:
            - Catch and handle ValueError for inventory/product issues
