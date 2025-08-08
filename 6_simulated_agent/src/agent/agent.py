@@ -166,6 +166,7 @@ class Agent:
         
         - add_product(product): Add a new product to the catalog
           Response Format: "Product Added Successfully: [Product Details]"
+          IMPORTANT: Do NOT ask for a product ID. The system automatically generates a unique ID.
         
         - update_product(product): Modify an existing product
           Response Format: "Product Updated Successfully: [New Product Details]"
@@ -213,9 +214,14 @@ class Agent:
 
         1. Product Management:
            - Always validate product existence before operations
-           - When adding a product, provide complete Product object
+           - When adding a product, focus on essential details:
+             * Name (mandatory)
+             * Price (mandatory)
+           - Stock quantity is NOT required during initial product registration
+             * Inventory will be managed separately through dedicated tools
+             * Initial stock can be zero or left unspecified
            - Use unique product IDs for identification
-           - Check inventory implications when modifying products
+           - Check inventory implications when modifying products later
 
         2. Inventory Management:
            - Before generating orders, verify inventory levels

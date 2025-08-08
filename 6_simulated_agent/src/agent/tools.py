@@ -87,8 +87,30 @@ def list_inventory():
     return inventory_repo.list_all()
 
 @log_execution_time
-def add_product(product: Product):
+def add_product(product):
+    # Convert dictionary to Product if needed
+    if isinstance(product, dict):
+        product = Product(
+            name=product.get('name'),
+            price=product.get('price'),
+            quantity=product.get('quantity', 0)
+        )
+    
+    # Validate required fields
+    if not product.name:
+        raise ValueError("Nome do produto é obrigatório")
+    if product.price is None or product.price < 0:
+        raise ValueError("Preço do produto deve ser um número não negativo")
+    if product.quantity is None or product.quantity < 0:
+        raise ValueError("Quantidade do produto deve ser um número não negativo")
+    
+    # Create the product
     product_repo.create(product)
+    
+    # Log the product addition
+    logger.info(f"Produto adicionado: {product.name}")
+    
+    return f"Produto '{product.name}' adicionado com sucesso"
 
 @log_execution_time
 def update_product(product: Product):

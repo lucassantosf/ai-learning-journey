@@ -1,10 +1,11 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import uuid
 
 @dataclass
 class Product:
-    id: str
     name: str
     price: float
-    quantity: int
-    average_rating: float
+    quantity: int = 0
+    average_rating: float = 0.0
     image_url: str = None
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))

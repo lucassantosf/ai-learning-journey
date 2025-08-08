@@ -18,7 +18,7 @@ def test_repositories():
     print("\n")
 
     # Test: Create new product
-    new_product = Product(id="p011", name="RGB Gaming Headset", quantity=20, average_rating=4.6, price=150)
+    new_product = Product(name="RGB Gaming Headset", price=150)
     product_repo.create(new_product)
     print("➕ Product Created:")
     pprint(product_repo.find_by_id("p011"))
@@ -46,7 +46,13 @@ def test_repositories():
 
     # Test: Create order
     items = [OrderItem(product_id="p001", quantity=1), OrderItem(product_id="p002", quantity=2)]
-    new_order = Order(id="order_001", items=items, creation_date=datetime.now())
+    new_order = Order(
+        id="order_001", 
+        user_id="test_user", 
+        customer_name="Test Customer", 
+        items=items, 
+        creation_date=datetime.now()
+    )
     order_repo.create(new_order)
     print("📦 Order Created:")
     pprint(order_repo.find_by_id("order_001"))
