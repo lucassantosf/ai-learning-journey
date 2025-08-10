@@ -113,7 +113,25 @@ def add_product(product):
     return f"Produto '{product.name}' adicionado com sucesso"
 
 @log_execution_time
-def update_product(product: Product):
+def update_product(product):
+    # Se for um dicionário, encontrar o produto pelo nome
+    if isinstance(product, dict):
+        # Encontrar o produto pelo nome
+        products = product_repo.list_all()
+        matching_product = next((p for p in products if p.name == product.get('name')), None)
+        
+        if not matching_product:
+            raise ValueError(f"Produto com nome '{product.get('name')}' não encontrado")
+        
+        # Atualizar os campos do produto existente
+        matching_product.price = product.get('price', matching_product.price)
+        matching_product.quantity = product.get('quantity', matching_product.quantity)
+        
+        product_repo.update(matching_product)
+        
+        return f"Produto '{matching_product.name}' atualizado com sucesso"
+    
+    # Se já for um objeto Product, atualizar normalmente
     product_repo.update(product)
 
 @log_execution_time

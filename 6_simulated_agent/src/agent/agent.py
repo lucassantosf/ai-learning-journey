@@ -132,21 +132,36 @@ class Agent:
     @log_execution_time
     def call(self, user_question):
         self.logger.info(f"User asked: {user_question}")
+        self.used_tools = []  # Reset used tools for each call
         self.memory.add_message("system", self._system_prompt())
         self.memory.add_message("user", user_question)
 
-        while True:
+        max_iterations = 3  # Limit iterations to prevent infinite loops
+        current_iteration = 0
+
+        while current_iteration < max_iterations:
             messages = self.memory.get_context()
             response = self._send_to_model(messages)
             self.memory.add_message("assistant", response)
 
             action = self._extract_action(response)
             if action:
-                tool_result = self._run_tool(action)
-                self.memory.add_message("function", str(tool_result), name=action)
+                # Check if this exact action has not been used before
+                if action not in self.used_tools:
+                    tool_result = self._run_tool(action)
+                    self.memory.add_message("function", str(tool_result), name=action)
+                else:
+                    self.logger.info(f"Skipping repeated action: {action}")
+                    break
             else:
                 self.logger.info(f"Final response to user: {response}")
                 return response
+
+            current_iteration += 1
+
+        if current_iteration == max_iterations:
+            self.logger.warning("Maximum iterations reached. Stopping execution.")
+            return "Não foi possível concluir a tarefa completamente."
 
     def _system_prompt(self):
         # Prepare system message
@@ -266,6 +281,13 @@ class Agent:
            - Confirm order details before processing
            - Update inventory post-order
            - Collect and process order ratings
+
+        SPECIAL INSTRUCTIONS FOR PRODUCT UPDATE:
+        - When updating a product, first list all products
+        - Find the product by its name
+        - Use the found product's ID for updating
+        - Do NOT ask the user for the product ID
+        - Automatically handle product updates based on the product name
 
         Example Complex Interaction:
         User: "I want to order 2 units of product 'laptop', check availability first"
