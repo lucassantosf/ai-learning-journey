@@ -96,9 +96,30 @@ class Agent:
     def _run_tool(self, action_str: str):
         self.logger.info(f"⚙️ Executing tool: {action_str}")
         try:
-            result = eval(action_str, {}, self.TOOLS)
-            self.used_tools.append(action_str)
-            self.logger.info(f"Tool executed successfully: {action_str}")
+            # Remove any trailing quotes or extra characters
+            clean_action_str = action_str.strip("'\"")
+            
+            # Directly call the function from self.TOOLS
+            if clean_action_str in self.TOOLS:
+                result = self.TOOLS[clean_action_str]()
+            else:
+                # If it's a function call with parameters
+                match = re.match(r'(\w+)\((.*)\)', clean_action_str)
+                if match:
+                    func_name = match.group(1)
+                    params_str = match.group(2)
+                    
+                    # Try to parse parameters
+                    try:
+                        params = eval(f"dict({params_str})")
+                        result = self.TOOLS[func_name](**params)
+                    except Exception as parse_error:
+                        raise ValueError(f"Error parsing parameters: {parse_error}")
+                else:
+                    raise ValueError(f"Invalid tool action format: {clean_action_str}")
+            
+            self.used_tools.append(clean_action_str)
+            self.logger.info(f"Tool executed successfully: {clean_action_str}")
             return result
         except Exception as e:
             error_msg = f"Error running tool {action_str}: {e}"
@@ -106,7 +127,18 @@ class Agent:
             return error_msg
 
     def _send_to_model(self, messages):
-        self.logger.debug(f"Sending messages to model: {messages}")
+        # Truncate messages to avoid logging large system prompts
+        truncated_messages = []
+        for msg in messages:
+            # Truncate system messages more aggressively
+            if msg['role'] == 'system':
+                truncated_msg = {**msg, 'content': 'System Prompt (Truncated)'}
+            else:
+                # For other messages, keep the first 100 characters
+                truncated_msg = {**msg, 'content': msg['content'][:100] + '...' if len(msg['content']) > 100 else msg['content']}
+            truncated_messages.append(truncated_msg)
+
+        self.logger.debug(f"Sending messages to model: {truncated_messages}")
         try:
             if self.provider == 'openai':
                 content = self.client.chat.completions.create(
@@ -122,7 +154,9 @@ class Agent:
                 combined = "\n".join([f"{m['role'].capitalize()}: {m['content']}" for m in messages])
                 content = self.client.generate_content(combined).text
 
-            self.logger.debug(f"Model response: {content}")
+            # Truncate the response log to prevent overwhelming logs
+            truncated_content = content[:200] + '...' if len(content) > 200 else content
+            self.logger.debug(f"Model response: {truncated_content}")
             return content
 
         except Exception as e:
@@ -154,7 +188,7 @@ class Agent:
                     self.logger.info(f"Skipping repeated action: {action}")
                     break
             else:
-                self.logger.info(f"Final response to user: {response}")
+                # Directly return the response without logging
                 return response
 
             current_iteration += 1
@@ -188,6 +222,10 @@ class Agent:
         
         - delete_product(product_id): Remove a product from catalog
           Response Format: "Product Deleted Successfully: [Product ID]"
+          SPECIAL INSTRUCTIONS:
+          * If no product_id is provided, DELETE ALL PRODUCTS
+          * When deleting all products, confirm the action without asking for specific IDs
+          * Provide a clear summary of deleted products
 
         INVENTORY MANAGEMENT TOOLS:
         - list_inventory(): Shows current stock levels

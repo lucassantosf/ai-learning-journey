@@ -76,15 +76,17 @@ def rate_order(order_id, rating):
 
 @log_execution_time
 def list_products():
-    return product_repo.list_all()
+    products = product_repo.list_all()
+    
+    # Se não houver produtos, retorna uma mensagem amigável
+    if not products:
+        return "Não há produtos cadastrados no momento. Você pode adicionar novos produtos usando o comando 'add_product'."
+    
+    return products
 
 @log_execution_time
 def get_product(product_id):
     return product_repo.find_by_id(product_id)
-
-@log_execution_time
-def list_inventory():
-    return inventory_repo.list_all()
 
 @log_execution_time
 def add_product(product):
@@ -110,22 +112,34 @@ def add_product(product):
     # Log the product addition
     logger.info(f"Produto adicionado: {product.name}")
     
+    # Retorna apenas a mensagem de sucesso
     return f"Produto '{product.name}' adicionado com sucesso"
 
 @log_execution_time
 def update_product(product):
-    # Se for um dicionário, encontrar o produto pelo nome
+    # Se for um dicionário, encontrar o produto pelo nome ou ID
     if isinstance(product, dict):
-        # Encontrar o produto pelo nome
+        # Encontrar o produto pelo nome ou ID
         products = product_repo.list_all()
-        matching_product = next((p for p in products if p.name == product.get('name')), None)
+        
+        # Primeiro tenta encontrar pelo ID
+        if product.get('id'):
+            matching_product = next((p for p in products if p.id == product.get('id')), None)
+        
+        # Se não encontrar pelo ID, tenta pelo nome
+        if not matching_product and product.get('name'):
+            matching_product = next((p for p in products if p.name == product.get('name')), None)
         
         if not matching_product:
-            raise ValueError(f"Produto com nome '{product.get('name')}' não encontrado")
+            raise ValueError(f"Produto não encontrado. Forneça um nome ou ID válido.")
         
         # Atualizar os campos do produto existente
-        matching_product.price = product.get('price', matching_product.price)
-        matching_product.quantity = product.get('quantity', matching_product.quantity)
+        if 'name' in product:
+            matching_product.name = product['name']
+        if 'price' in product:
+            matching_product.price = product['price']
+        if 'quantity' in product:
+            matching_product.quantity = product['quantity']
         
         product_repo.update(matching_product)
         
@@ -135,8 +149,57 @@ def update_product(product):
     product_repo.update(product)
 
 @log_execution_time
-def delete_product(product_id: str):
+def delete_product(product_id: str = None):
+    # Se nenhum ID for fornecido, deletar todos os produtos
+    if product_id is None:
+        products = product_repo.list_all()
+        if not products:
+            return "Não há produtos para deletar."
+        
+        deleted_products = []
+        for product in products:
+            product_repo.delete(product.id)
+            deleted_products.append(product.name)
+        
+        return f"Todos os produtos foram deletados: {', '.join(deleted_products)}"
+
+    # Se for passado um nome, encontrar o ID correspondente
+    if not product_id.startswith('p'):
+        products = product_repo.list_all()
+        matching_product = next((p for p in products if p.name == product_id), None)
+        
+        if not matching_product:
+            return f"Produto '{product_id}' não encontrado para exclusão."
+        
+        product_id = matching_product.id
+
+    # Verificar se o produto existe antes de deletar
+    product = product_repo.find_by_id(product_id)
+    if not product:
+        return f"Produto com ID {product_id} não encontrado para exclusão."
+
+    # Realizar a exclusão
     product_repo.delete(product_id)
+    return f"Produto '{product.name}' (ID: {product_id}) deletado com sucesso."
+
+@log_execution_time
+def list_inventory():
+    from src.repository.product_mem_repo import ProductMemRepository
+    product_repo = ProductMemRepository()
+    
+    inventories = inventory_repo.list_all()
+    
+    if not inventories:
+        return "Não há itens em estoque no momento."
+    
+    # Formatar a lista de inventário com nomes dos produtos
+    inventory_list = []
+    for inv in inventories:
+        product = product_repo.find_by_id(inv.product_id)
+        if product:
+            inventory_list.append(f"🏷️ {product.name} (ID: {inv.product_id}): {inv.quantity} unidades")
+    
+    return "Estoque atual:\n" + "\n".join(inventory_list)
 
 @log_execution_time
 def update_inventory(inventory: Inventory):

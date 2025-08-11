@@ -7,13 +7,17 @@ def setup_logger(name="agent_logger", level=logging.DEBUG):
     logger = logging.getLogger(name)
     logger.setLevel(level)
 
-    if not logger.handlers:
-        formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
+    # Remove existing handlers to prevent duplicate logging
+    if logger.handlers:
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
 
-        os.makedirs("logs", exist_ok=True)
-        file = logging.FileHandler("logs/agent.log")
-        file.setFormatter(formatter)
-        logger.addHandler(file)
+    formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
+
+    os.makedirs("logs", exist_ok=True)
+    file = logging.FileHandler("logs/agent.log")
+    file.setFormatter(formatter)
+    logger.addHandler(file)
 
     return logger
 
