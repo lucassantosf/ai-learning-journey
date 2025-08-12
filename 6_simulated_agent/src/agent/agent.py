@@ -228,11 +228,27 @@ class Agent:
           * Provide a clear summary of deleted products
 
         INVENTORY MANAGEMENT TOOLS:
-        - list_inventory(): Shows current stock levels
-          Response Format: "Inventory Status: [Product ID: Quantity]"
+        - list_inventory(): Provides a comprehensive overview of current inventory
+          Response Format: A detailed dictionary containing:
+          • total_products: Number of unique products in stock
+          • total_items: Total quantity of all items
+          • inventory_list: Detailed list of products with:
+            - Product name
+            - Product ID
+            - Current stock quantity
+          • formatted_summary: A human-readable summary of inventory status
+
+          IMPORTANT GUIDELINES:
+          * Always present the full inventory details to the user
+          * Use the 'formatted_summary' for a quick, readable overview
+          * Highlight products with low stock or zero inventory
+          * Provide context about the inventory status
         
         - update_inventory(inventory): Adjust product stock
           Response Format: "Inventory Updated Successfully: [Product ID, New Quantity]"
+          SPECIAL INSTRUCTIONS:
+          * Confirm the exact quantity added to the inventory
+          * Provide the updated total stock for the product
 
         ORDER MANAGEMENT TOOLS:
         - generate_order(items): Create a new order

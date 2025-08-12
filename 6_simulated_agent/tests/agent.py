@@ -86,6 +86,14 @@ def interactive_chat():
                     print("Returning to provider selection.")
                     break
                 
+                # Check for clear condition
+                if user_input.lower() == 'clear':
+                    # Cross-platform screen clearing
+                    os.system('cls' if os.name == 'nt' else 'clear')
+                    print(f"\n--- Interactive Chat with {selected_provider.upper()} Provider ---")
+                    print("Type 'exit' to change provider.")
+                    continue
+                
                 # Get and print agent response
                 try:
                     response = agent.call(user_input)

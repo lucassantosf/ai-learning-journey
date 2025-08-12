@@ -184,23 +184,81 @@ def delete_product(product_id: str = None):
 
 @log_execution_time
 def list_inventory():
-    from src.repository.product_mem_repo import ProductMemRepository
-    product_repo = ProductMemRepository()
-    
     inventories = inventory_repo.list_all()
     
     if not inventories:
+        logger.info("Não há itens em estoque no momento.")
         return "Não há itens em estoque no momento."
     
     # Formatar a lista de inventário com nomes dos produtos
     inventory_list = []
+    total_items = 0
     for inv in inventories:
-        product = product_repo.find_by_id(inv.product_id)
-        if product:
-            inventory_list.append(f"🏷️ {product.name} (ID: {inv.product_id}): {inv.quantity} unidades")
+        # Use product_name if available, otherwise skip
+        if inv.product_name:
+            inventory_list.append(f"🏷️ {inv.product_name} (ID: {inv.product_id}): {inv.quantity} unidades")
+            total_items += inv.quantity
     
-    return "Estoque atual:\n" + "\n".join(inventory_list)
+    # Log the inventory details
+    logger.info(f"Listagem de estoque gerada. Total de {len(inventory_list)} produtos, {total_items} unidades em estoque.")
+    
+    # Adicionar informações adicionais
+    summary = {
+        'total_products': len(inventory_list),
+        'total_items': total_items,
+        'inventory_list': inventory_list,
+        'formatted_summary': f"📦 Resumo do Estoque:\n" \
+                             f"Total de Produtos: {len(inventory_list)}\n" \
+                             f"Total de Unidades: {total_items}\n\n" \
+                             f"Detalhes do Estoque:\n" + "\n".join(inventory_list)
+    }
+    
+    return summary
 
 @log_execution_time
-def update_inventory(inventory: Inventory):
-    inventory_repo.add(inventory)
+def update_inventory(product_name: str = None, quantity: int = None, inventory: dict = None):
+    """
+    Update inventory for a product 
+    
+    :param product_name: Exact name of the product
+    :param quantity: Quantity to add to the inventory
+    :param inventory: Alternative input as a dictionary
+    :return: Success message or error description
+    """
+    # Handle dictionary input if provided
+    if inventory and isinstance(inventory, dict):
+        product_id = inventory.get('product_id')
+        quantity = inventory.get('quantity')
+        
+        # Find the product by ID
+        product = product_repo.find_by_id(product_id)
+        if not product:
+            return f"Produto com ID {product_id} não encontrado."
+        
+        product_name = product.name
+
+    # Validate input parameters
+    if not product_name or quantity is None:
+        return "Por favor, forneça o nome do produto e a quantidade a ser adicionada."
+
+    # Find the product by exact name if not found via ID
+    if not product:
+        products = product_repo.list_all()
+        product = next((p for p in products if p.name == product_name), None)
+
+    if not product:
+        return f"Produto '{product_name}' não encontrado."
+
+    # Create Inventory object with the product's ID
+    inventory_obj = Inventory(
+        product_id=product.id, 
+        quantity=quantity
+    )
+
+    # Add to inventory
+    inventory_repo.add(inventory_obj)
+
+    # Log the inventory update
+    logger.info(f"Estoque do produto '{product_name}' atualizado: +{quantity} unidades")
+
+    return f"Adicionadas {quantity} unidades ao estoque do produto '{product_name}'"
