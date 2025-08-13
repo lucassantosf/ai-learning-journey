@@ -5,10 +5,52 @@ from dotenv import load_dotenv
 import ollama
 import google.generativeai as genai
 from openai import OpenAI
+import concurrent.futures
+import signal
+import threading
+import time
 
 from src.agent import tools
 from src.agent.memory import Memory
 from src.utils.logger import setup_logger, log_execution_time
+
+class APICallTracker:
+    def __init__(self, max_calls=15, reset_time=900):  # 15 calls per 15 minutes
+        self.calls = 0
+        self.last_reset = time.time()
+        self.max_calls = max_calls
+        self.reset_time = reset_time
+        self.conversation_calls = 0
+        self.max_conversation_calls = 10  # Max calls within a single conversation
+
+    def can_make_call(self, is_new_conversation=False):
+        current_time = time.time()
+        
+        # Reset overall calls if reset time has passed
+        if current_time - self.last_reset > self.reset_time:
+            self.calls = 0
+            self.last_reset = current_time
+        
+        # Reset conversation calls if it's a new conversation
+        if is_new_conversation:
+            self.conversation_calls = 0
+
+        # Check overall calls limit
+        if self.calls >= self.max_calls:
+            return False
+        
+        # Check conversation calls limit
+        if self.conversation_calls >= self.max_conversation_calls:
+            return False
+
+        # Increment calls
+        self.calls += 1
+        self.conversation_calls += 1
+        return True
+
+class TimeoutException(Exception):
+    """Exception raised when a function call times out."""
+    pass
 
 class Agent:
     def __init__(self, provider='openai'): 
@@ -19,6 +61,9 @@ class Agent:
         self.used_tools = []
         self._load_tools()
         self.memory = Memory(max_messages=30)
+        
+        # Initialize API call tracker
+        self.api_call_tracker = APICallTracker()
 
         if provider == 'openai':
             self._setup_openai()
@@ -111,10 +156,81 @@ class Agent:
                     
                     # Try to parse parameters
                     try:
-                        params = eval(f"dict({params_str})")
+                        # Special handling for get_product
+                        if func_name == 'get_product':
+                            # Remove quotes and strip
+                            product_identifier = params_str.strip("'\"")
+                            params = {'product_name': product_identifier}
+                        
+                        # Handle generate_order with list of dictionaries
+                        elif func_name == 'generate_order':
+                            # More robust parsing for generate_order
+                            try:
+                                # Try to parse as a list of dictionaries
+                                params_list = eval(params_str)
+                            except Exception:
+                                # If parsing fails, try to parse as a single dictionary
+                                params_list = [eval(f"dict({params_str})")]
+                            
+                            # Prepare to collect user details
+                            customer_name = None
+                            user_id = None
+                            order_items = []
+
+                            # Process each item in the list
+                            for item in params_list:
+                                # Convert product name to product ID
+                                if 'product_name' in item:
+                                    product = tools.product_repo.find_by_name(item['product_name'])
+                                    if not product:
+                                        raise ValueError(f"Produto '{item['product_name']}' não encontrado")
+                                    
+                                    order_items.append(
+                                        tools.OrderItem(
+                                            product_id=product.id,
+                                            quantity=item.get('quantity', 1)
+                                        )
+                                    )
+                                elif 'product_id' in item:
+                                    order_items.append(
+                                        tools.OrderItem(
+                                            product_id=item['product_id'],
+                                            quantity=item.get('quantity', 1)
+                                        )
+                                    )
+                                
+                                # Collect user details (prioritize later items)
+                                if 'customer_name' in item:
+                                    customer_name = item['customer_name']
+                                if 'user_id' in item:
+                                    user_id = item['user_id']
+
+                            # Validate user details
+                            if not customer_name or not user_id:
+                                # If details are missing, try to extract from the first item
+                                first_item = params_list[0]
+                                customer_name = first_item.get('customer_name', customer_name)
+                                user_id = first_item.get('user_id', user_id)
+
+                            # Final validation of user details
+                            if not customer_name or not user_id:
+                                raise ValueError("Identificação do usuário é obrigatória. Por favor, forneça nome do cliente e ID do usuário.")
+
+                            # Prepare parameters for order generation
+                            params = {
+                                'items': order_items,
+                                'customer_name': customer_name,
+                                'user_id': user_id
+                            }
+                        
+                        # Default parsing for other tools
+                        else:
+                            # Try to parse as dictionary
+                            params = eval(f"dict({params_str})")
+                        
                         result = self.TOOLS[func_name](**params)
                     except Exception as parse_error:
-                        raise ValueError(f"Error parsing parameters: {parse_error}")
+                        raise ValueError(f"Error parsing parameters for {func_name}: {parse_error}")
                 else:
                     raise ValueError(f"Invalid tool action format: {clean_action_str}")
             
@@ -126,7 +242,13 @@ class Agent:
             self.logger.error(error_msg)
             return error_msg
 
-    def _send_to_model(self, messages):
+    def _send_to_model(self, messages, timeout=30):
+        # Check if we can make an API call
+        if not self.api_call_tracker.can_make_call():
+            error_msg = "⚠️ Limite de chamadas de API excedido. Por favor, aguarde alguns minutos antes de tentar novamente."
+            self.logger.warning(error_msg)
+            raise TimeoutException(error_msg)
+
         # Truncate messages to avoid logging large system prompts
         truncated_messages = []
         for msg in messages:
@@ -139,29 +261,51 @@ class Agent:
             truncated_messages.append(truncated_msg)
 
         self.logger.debug(f"Sending messages to model: {truncated_messages}")
+        
+        def _call_openai():
+            return self.client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=messages
+            ).choices[0].message.content
+
+        def _call_ollama():
+            return self.client.chat(
+                model='llama3.2:1b',
+                messages=messages
+            )['message']['content']
+
+        def _call_gemini():
+            combined = "\n".join([f"{m['role'].capitalize()}: {m['content']}" for m in messages])
+            return self.client.generate_content(combined).text
+
         try:
-            if self.provider == 'openai':
-                content = self.client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=messages
-                ).choices[0].message.content
-            elif self.provider == 'ollama':
-                content = self.client.chat(
-                    model='llama3.2:1b',
-                    messages=messages
-                )['message']['content']
-            elif self.provider == 'gemini':
-                combined = "\n".join([f"{m['role'].capitalize()}: {m['content']}" for m in messages])
-                content = self.client.generate_content(combined).text
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                if self.provider == 'openai':
+                    future = executor.submit(_call_openai)
+                elif self.provider == 'ollama':
+                    future = executor.submit(_call_ollama)
+                elif self.provider == 'gemini':
+                    future = executor.submit(_call_gemini)
+                else:
+                    raise ValueError(f"Unsupported provider: {self.provider}")
+
+                try:
+                    content = future.result(timeout=timeout)
+                except concurrent.futures.TimeoutError:
+                    self.logger.warning(f"API call to {self.provider} timed out after {timeout} seconds")
+                    raise TimeoutException(f"⚠️ Desculpe, a chamada para o modelo {self.provider.upper()} excedeu o tempo limite de {timeout} segundos. Por favor, tente novamente mais tarde.")
 
             # Truncate the response log to prevent overwhelming logs
             truncated_content = content[:200] + '...' if len(content) > 200 else content
             self.logger.debug(f"Model response: {truncated_content}")
             return content
 
+        except TimeoutException as te:
+            self.logger.error(f"Timeout error: {te}")
+            return str(te)
         except Exception as e:
             self.logger.error(f"Error sending message to model: {e}")
-            raise
+            return f"⚠️ Erro ao processar sua solicitação: {str(e)}"
 
     @log_execution_time
     def call(self, user_question):
@@ -170,8 +314,9 @@ class Agent:
         self.memory.add_message("system", self._system_prompt())
         self.memory.add_message("user", user_question)
 
-        max_iterations = 3  # Limit iterations to prevent infinite loops
+        max_iterations = 5  # Increased from 3 to 5 to allow more complex interactions
         current_iteration = 0
+        completed_actions = set()  # Track completed actions to prevent infinite loops
 
         while current_iteration < max_iterations:
             messages = self.memory.get_context()
@@ -180,22 +325,27 @@ class Agent:
 
             action = self._extract_action(response)
             if action:
-                # Check if this exact action has not been used before
-                if action not in self.used_tools:
+                # Prevent repeating the same action multiple times
+                if action not in completed_actions:
                     tool_result = self._run_tool(action)
                     self.memory.add_message("function", str(tool_result), name=action)
+                    completed_actions.add(action)
+
+                    # Check if the task seems complete based on the action
+                    if 'generate_order' in action or 'list_orders' in action:
+                        return tool_result
                 else:
                     self.logger.info(f"Skipping repeated action: {action}")
-                    break
-            else:
-                # Directly return the response without logging
-                return response
 
             current_iteration += 1
 
         if current_iteration == max_iterations:
-            self.logger.warning("Maximum iterations reached. Stopping execution.")
-            return "Não foi possível concluir a tarefa completamente."
+            self.logger.warning("Maximum iterations reached. Attempting to complete task.")
+            # Try to complete the task with the last known context
+            final_response = self._send_to_model(messages, timeout=45)
+            return final_response
+
+        return "Não foi possível concluir a tarefa completamente."
 
     def _system_prompt(self):
         # Prepare system message
@@ -253,6 +403,12 @@ class Agent:
         ORDER MANAGEMENT TOOLS:
         - generate_order(items): Create a new order
           Response Format: "Order Created: [Order ID, Total Items, Total Price]"
+          CRITICAL GUIDELINES:
+          * ALWAYS find the product ID automatically based on the product name
+          * Do NOT ask the user for product ID or any technical details
+          * Seamlessly handle product identification
+          * Validate product availability before order generation
+          * Provide a smooth, user-friendly order creation experience
         
         - get_order(order_id): Retrieve order details
           Response Format: "Order Details: [ID, Items, Total, Date, Status]"
@@ -336,12 +492,12 @@ class Agent:
            - Update inventory post-order
            - Collect and process order ratings
 
-        SPECIAL INSTRUCTIONS FOR PRODUCT UPDATE:
-        - When updating a product, first list all products
-        - Find the product by its name
-        - Use the found product's ID for updating
-        - Do NOT ask the user for the product ID
-        - Automatically handle product updates based on the product name
+        SPECIAL INSTRUCTIONS FOR ORDER GENERATION:
+        - Automatically find product by its name
+        - Do NOT expose technical details to the user
+        - Seamlessly handle product identification
+        - Validate product availability transparently
+        - Focus on providing a smooth user experience
 
         Example Complex Interaction:
         User: "I want to order 2 units of product 'laptop', check availability first"

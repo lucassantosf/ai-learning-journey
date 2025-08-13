@@ -29,3 +29,15 @@ class ProductMemRepository(ProductRepository):
     def delete(self, product_id: str) -> None:
         if product_id in self._products:
             del self._products[product_id]
+
+    def find_by_name(self, product_name: str) -> Product:
+        """
+        Find a product by its exact name (case-insensitive)
+        
+        :param product_name: Name of the product to find
+        :return: Product if found, None otherwise
+        """
+        for product in self._products.values():
+            if product.name.lower() == product_name.lower():
+                return product
+        return None

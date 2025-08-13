@@ -22,21 +22,60 @@ def generate_order(items, user_id=None, customer_name=None):
     """
     Generate a new order with given items
     
-    :param items: List of order items
+    :param items: List of order items or a single dictionary
     :param user_id: Unique user identifier (required)
     :param customer_name: Full name of the customer (required)
     :return: Created order
     :raises ValueError: If user identification is incomplete
     """
+    # Handle case where items is a single dictionary
+    if isinstance(items, dict):
+        items = [items]
+
+    # Normalize and validate user identification
+    if items and isinstance(items[0], dict):
+        # Extract user details from first item if not provided directly
+        first_item = items[0]
+        user_id = user_id or first_item.get('user_id')
+        customer_name = customer_name or first_item.get('customer_name')
+
     # Validate user identification
     if not user_id or not customer_name:
-        raise ValueError("User identification is required. Please provide both user_id and customer_name.")
+        # Try to extract from the first item if not provided
+        if items and isinstance(items[0], dict):
+            user_id = items[0].get('user_id', user_id)
+            customer_name = items[0].get('customer_name', customer_name)
+
+    # Final validation of user identification
+    if not user_id or not customer_name:
+        raise ValueError("Identificação do usuário é obrigatória. Por favor, forneça nome do cliente e ID do usuário.")
+
+    # Normalize items if they are dictionaries
+    order_items = []
+    for item in items:
+        # Handle both dictionary and OrderItem inputs
+        if isinstance(item, dict):
+            product_id = (
+                product_repo.find_by_name(item.get('product_name')).id 
+                if 'product_name' in item 
+                else item.get('product_id')
+            )
+            order_items.append(
+                OrderItem(
+                    product_id=product_id,
+                    quantity=item.get('quantity', 1)
+                )
+            )
+        elif isinstance(item, OrderItem):
+            order_items.append(item)
+        else:
+            raise ValueError(f"Invalid item type: {type(item)}")
 
     # Validate product availability and inventory
-    for item in items:
+    for item in order_items:
         product = product_repo.find_by_id(item.product_id)
         if not product:
-            raise ValueError(f"Product {item.product_id} not found")
+            raise ValueError(f"Produto {item.product_id} não encontrado")
         
         current_inventory = next(
             (inv for inv in inventory_repo.list_all() if inv.product_id == item.product_id), 
@@ -44,20 +83,20 @@ def generate_order(items, user_id=None, customer_name=None):
         )
         
         if not current_inventory or current_inventory.quantity < item.quantity:
-            raise ValueError(f"Insufficient inventory for product {item.product_id}")
+            raise ValueError(f"Estoque insuficiente para o produto {item.product_id}")
     
     # Generate order with full user identification
     order = Order(
         id=f"order_{len(order_repo.list_all()) + 1:03d}", 
         user_id=user_id,
         customer_name=customer_name,
-        items=items, 
+        items=order_items, 
         creation_date=datetime.now()
     )
     order_repo.create(order)
     
     # Update inventory
-    for item in items:
+    for item in order_items:
         inventory_repo.remove(item.product_id, item.quantity)
     
     return order
@@ -85,8 +124,43 @@ def list_products():
     return products
 
 @log_execution_time
-def get_product(product_id):
-    return product_repo.find_by_id(product_id)
+def get_product(product_name=None, product_id=None):
+    """
+    Retrieve a product by name or ID
+    
+    :param product_name: Name of the product to find
+    :param product_id: ID of the product to find
+    :return: Product details or raise an informative error
+    """
+    products = product_repo.list_all()
+
+    # Normalize inputs
+    if product_name:
+        product_name = product_name.strip("'\"")
+    if product_id:
+        product_id = product_id.strip("'\"")
+
+    # Try to find by ID first
+    if product_id and product_id.startswith('p'):
+        product = next((p for p in products if p.id == product_id), None)
+        if product:
+            return product
+        
+    # Try to find by name (case-insensitive partial match)
+    if product_name:
+        matching_product = next((p for p in products if product_name.lower() in p.name.lower()), None)
+        if matching_product:
+            return matching_product
+        
+        # If no match, suggest similar products
+        similar_products = [p.name for p in products if product_name.lower() in p.name.lower()]
+        if similar_products:
+            raise ValueError(f"Produto '{product_name}' não encontrado. Produtos similares: {', '.join(similar_products)}")
+        
+        raise ValueError(f"Produto '{product_name}' não encontrado")
+    
+    # If both name and ID are None or empty
+    raise ValueError("Nome ou ID do produto deve ser fornecido")
 
 @log_execution_time
 def add_product(product):
