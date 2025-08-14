@@ -1,8 +1,5 @@
 from dataclasses import dataclass
 from datetime import datetime
-from src.repository.product_mem_repo import ProductMemRepository
-from src.repository.order_mem_repo import OrderMemRepository
-from src.repository.inventory_mem_repo import InventoryMemRepository
 from src.models.order import Order, OrderItem
 from src.models.product import Product
 from src.models.inventory import Inventory
@@ -12,10 +9,19 @@ from src.utils.logger import setup_logger, log_execution_time
 # Inicializa logger
 logger = setup_logger()
 
-# Repositórios em memória
-product_repo = ProductMemRepository()
-order_repo = OrderMemRepository()
-inventory_repo = InventoryMemRepository()
+# Repositórios em memória ou SQLite
+from src.repository.product_mem_repo import ProductMemRepository
+from src.repository.order_mem_repo import OrderMemRepository
+from src.repository.inventory_mem_repo import InventoryMemRepository
+
+from src.repository.sqlite_product_repo import SQLiteProductRepository
+from src.repository.sqlite_order_repo import SQLiteOrderRepository
+from src.repository.sqlite_inventory_repo import SQLiteInventoryRepository
+
+# Usar repositórios SQLite por padrão
+product_repo = SQLiteProductRepository()
+order_repo = SQLiteOrderRepository()
+inventory_repo = SQLiteInventoryRepository()
 
 @log_execution_time
 def generate_order(items, user_id=None, customer_name=None):
@@ -39,16 +45,31 @@ def generate_order(items, user_id=None, customer_name=None):
         user_id = user_id or first_item.get('user_id')
         customer_name = customer_name or first_item.get('customer_name')
 
-    # Validate user identification
-    if not user_id or not customer_name:
-        # Try to extract from the first item if not provided
-        if items and isinstance(items[0], dict):
-            user_id = items[0].get('user_id', user_id)
-            customer_name = items[0].get('customer_name', customer_name)
+    # Attempt to extract user details from various possible sources
+    if not user_id:
+        # Try to find user_id in various formats
+        user_id = (
+            first_item.get('user_id') or 
+            first_item.get('cpf') or 
+            first_item.get('id') or 
+            first_item.get('customer_id')
+        )
+
+    if not customer_name:
+        # Try to find customer_name in various formats
+        customer_name = (
+            first_item.get('customer_name') or 
+            first_item.get('name') or 
+            first_item.get('full_name')
+        )
 
     # Final validation of user identification
     if not user_id or not customer_name:
-        raise ValueError("Identificação do usuário é obrigatória. Por favor, forneça nome do cliente e ID do usuário.")
+        raise ValueError(
+            "Identificação do usuário é obrigatória. " 
+            "Por favor, forneça nome do cliente e ID do usuário. " 
+            "Detalhes fornecidos: " + str(first_item)
+        )
 
     # Normalize items if they are dictionaries
     order_items = []
@@ -121,7 +142,22 @@ def list_products():
     if not products:
         return "Não há produtos cadastrados no momento. Você pode adicionar novos produtos usando o comando 'add_product'."
     
-    return products
+    # Formatar lista de produtos de forma amigável
+    formatted_products = []
+    for product in products:
+        formatted_product = (
+            f"🏷️ {product.name}: "
+            f"R${product.price:.2f}, "
+            f"Avaliação: {product.average_rating} "
+            f"(Quantidade: {product.quantity})"
+        )
+        formatted_products.append(formatted_product)
+    
+    # Criar uma string formatada para exibição
+    product_list_str = "\n".join(formatted_products)
+    
+    # Retornar string formatada
+    return product_list_str
 
 @log_execution_time
 def get_product(product_name=None, product_id=None):
@@ -139,6 +175,11 @@ def get_product(product_name=None, product_id=None):
         product_name = product_name.strip("'\"")
     if product_id:
         product_id = product_id.strip("'\"")
+
+    # If product_id looks like a product name, treat it as such
+    if product_id and not product_id.startswith('p'):
+        product_name = product_id
+        product_id = None
 
     # Try to find by ID first
     if product_id and product_id.startswith('p'):
@@ -163,13 +204,29 @@ def get_product(product_name=None, product_id=None):
     raise ValueError("Nome ou ID do produto deve ser fornecido")
 
 @log_execution_time
-def add_product(product):
+def add_product(product=None, **kwargs):
+    # Handle different input formats
+    if product is None:
+        product = kwargs
+    
+    # If product is a string, assume it's the name
+    if isinstance(product, str):
+        product = {'name': product}
+    
     # Convert dictionary to Product if needed
     if isinstance(product, dict):
+        # Normalize keys to lowercase
+        product = {k.lower(): v for k, v in product.items()}
+        
+        # Handle different possible key names
+        name = product.get('name') or product.get('product') or product.get('nome')
+        price = product.get('price') or product.get('preco') or product.get('valor')
+        quantity = product.get('quantity', 0) or product.get('quantidade', 0)
+        
         product = Product(
-            name=product.get('name'),
-            price=product.get('price'),
-            quantity=product.get('quantity', 0)
+            name=name,
+            price=price,
+            quantity=quantity
         )
     
     # Validate required fields
@@ -301,27 +358,32 @@ def update_inventory(product_name: str = None, quantity: int = None, inventory: 
     """
     # Handle dictionary input if provided
     if inventory and isinstance(inventory, dict):
+        # Try to get product ID or name from the dictionary
         product_id = inventory.get('product_id')
+        product_name = inventory.get('product_name')
         quantity = inventory.get('quantity')
         
-        # Find the product by ID
-        product = product_repo.find_by_id(product_id)
-        if not product:
-            return f"Produto com ID {product_id} não encontrado."
-        
-        product_name = product.name
+        # If product_id is not a valid ID (starts with 'p'), treat it as product name
+        if product_id and not str(product_id).startswith('p'):
+            product_name = product_id
+            product_id = None
 
     # Validate input parameters
-    if not product_name or quantity is None:
-        return "Por favor, forneça o nome do produto e a quantidade a ser adicionada."
+    if not product_name and not product_id:
+        return "Por favor, forneça o nome ou ID do produto e a quantidade a ser adicionada."
+    
+    if quantity is None:
+        return "Por favor, forneça a quantidade a ser adicionada."
 
-    # Find the product by exact name if not found via ID
-    if not product:
+    # Find the product
+    if product_id:
+        product = product_repo.find_by_id(product_id)
+    else:
         products = product_repo.list_all()
         product = next((p for p in products if p.name == product_name), None)
 
     if not product:
-        return f"Produto '{product_name}' não encontrado."
+        return f"Produto '{product_name or product_id}' não encontrado."
 
     # Create Inventory object with the product's ID
     inventory_obj = Inventory(
@@ -333,6 +395,6 @@ def update_inventory(product_name: str = None, quantity: int = None, inventory: 
     inventory_repo.add(inventory_obj)
 
     # Log the inventory update
-    logger.info(f"Estoque do produto '{product_name}' atualizado: +{quantity} unidades")
+    logger.info(f"Estoque do produto '{product.name}' atualizado: +{quantity} unidades")
 
-    return f"Adicionadas {quantity} unidades ao estoque do produto '{product_name}'"
+    return f"Adicionadas {quantity} unidades ao estoque do produto '{product.name}'"

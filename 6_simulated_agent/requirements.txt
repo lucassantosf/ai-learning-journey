@@ -5,3 +5,4 @@ httpx>=0.23.0,<1.0.0
 ollama
 google-generativeai
 streamlit-option-menu
+sqlalchemy

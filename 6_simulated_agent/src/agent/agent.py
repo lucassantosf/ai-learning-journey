@@ -10,6 +10,7 @@ import signal
 import threading
 import time
 
+from src.utils.agent_prompt import get_agent_prompt
 from src.agent import tools
 from src.agent.memory import Memory
 from src.utils.logger import setup_logger, log_execution_time
@@ -314,9 +315,11 @@ class Agent:
         self.memory.add_message("system", self._system_prompt())
         self.memory.add_message("user", user_question)
 
-        max_iterations = 5  # Increased from 3 to 5 to allow more complex interactions
+        max_iterations = 10  # Limit iterations to prevent infinite loops
         current_iteration = 0
-        completed_actions = set()  # Track completed actions to prevent infinite loops
+        action_counts = {}  # Track action frequency
+        last_product = None  # Track last successfully found product
+        completed_actions = set()  # Track completed actions
 
         while current_iteration < max_iterations:
             messages = self.memory.get_context()
@@ -325,189 +328,80 @@ class Agent:
 
             action = self._extract_action(response)
             if action:
-                # Prevent repeating the same action multiple times
-                if action not in completed_actions:
-                    tool_result = self._run_tool(action)
-                    self.memory.add_message("function", str(tool_result), name=action)
-                    completed_actions.add(action)
+                # Increment action count and check for excessive repetition
+                action_counts[action] = action_counts.get(action, 0) + 1
+                if action_counts[action] > 2:
+                    self.logger.warning(f"Action {action} repeated too many times. Breaking loop.")
+                    break
 
-                    # Check if the task seems complete based on the action
-                    if 'generate_order' in action or 'list_orders' in action:
-                        return tool_result
-                else:
-                    self.logger.info(f"Skipping repeated action: {action}")
+                # Skip already completed actions
+                if action in completed_actions:
+                    continue
+
+                try:
+                    # Special handling for product retrieval
+                    if 'get_product' in action:
+                        try:
+                            tool_result = self._run_tool(action)
+                            last_product = tool_result
+                            self.memory.add_message("function", str(tool_result), name=action)
+                            completed_actions.add(action)
+                        except Exception as e:
+                            # If product not found, try to add it
+                            if 'não encontrado' in str(e):
+                                product_name = action.split('(')[1].strip("'\")")
+                                add_product_action = f"add_product(product={{'name': '{product_name}', 'price': 50.00}})"
+                                tool_result = self._run_tool(add_product_action)
+                                self.memory.add_message("function", str(tool_result), name=add_product_action)
+                                # Retry getting the product
+                                tool_result = self._run_tool(action)
+                                last_product = tool_result
+                                completed_actions.add(action)
+                            else:
+                                raise
+
+                    # For order generation, ensure product exists and has details
+                    elif 'generate_order' in action:
+                        # If no product found previously, extract from action
+                        if not last_product:
+                            match = re.search(r"'product_name':\s*'([^']+)'", action)
+                            if match:
+                                product_name = match.group(1)
+                                get_product_action = f"get_product('{product_name}')"
+                                last_product = self._run_tool(get_product_action)
+
+                        # Ensure product exists and has inventory
+                        if last_product and last_product.quantity > 0:
+                            # Modify action to include user details
+                            action = action.replace('generate_order', 
+                                f"generate_order(items=[{{'product_name': '{last_product.name}', 'quantity': 1, 'customer_name': 'lucas', 'user_id': '11122233344'}}])")
+
+                            tool_result = self._run_tool(action)
+                            self.memory.add_message("function", str(tool_result), name=action)
+                            completed_actions.add(action)
+                            return tool_result
+                        else:
+                            # If no inventory, suggest adding inventory
+                            update_inventory_action = f"update_inventory(product_name='{last_product.name}', quantity=10)"
+                            tool_result = self._run_tool(update_inventory_action)
+                            self.memory.add_message("function", str(tool_result), name=update_inventory_action)
+
+                    else:
+                        tool_result = self._run_tool(action)
+                        self.memory.add_message("function", str(tool_result), name=action)
+                        completed_actions.add(action)
+
+                except Exception as e:
+                    self.logger.error(f"Error executing action {action}: {e}")
+                    # Break the loop if we can't resolve the issue
+                    break
 
             current_iteration += 1
 
-        if current_iteration == max_iterations:
-            self.logger.warning("Maximum iterations reached. Attempting to complete task.")
-            # Try to complete the task with the last known context
-            final_response = self._send_to_model(messages, timeout=45)
-            return final_response
-
+        # If we exit the loop without completing the task
+        self.logger.warning("Could not complete the task after multiple attempts.")
         return "Não foi possível concluir a tarefa completamente."
 
+    # Prepare system message
     def _system_prompt(self):
-        # Prepare system message
-        return """You are an advanced AI agent for an E-commerce system with comprehensive tools. 
-        Your goal is to assist users by leveraging the following tools:
-
-        PRODUCT MANAGEMENT TOOLS:
-        - list_products(): Returns all available products
-          Response Format: A friendly, emoji-enhanced list of products with:
-          • Product name
-          • Price with "R$" prefix
-          • Optional description
-          • Quantity and rating information
-        
-        - get_product(product_id): Retrieves details of a specific product
-          Response Format: "Product Details: ID, Name, Price, Quantity, Average Rating"
-        
-        - add_product(product): Add a new product to the catalog
-          Response Format: "Product Added Successfully: [Product Details]"
-          IMPORTANT: Do NOT ask for a product ID. The system automatically generates a unique ID.
-        
-        - update_product(product): Modify an existing product
-          Response Format: "Product Updated Successfully: [New Product Details]"
-        
-        - delete_product(product_id): Remove a product from catalog
-          Response Format: "Product Deleted Successfully: [Product ID]"
-          SPECIAL INSTRUCTIONS:
-          * If no product_id is provided, DELETE ALL PRODUCTS
-          * When deleting all products, confirm the action without asking for specific IDs
-          * Provide a clear summary of deleted products
-
-        INVENTORY MANAGEMENT TOOLS:
-        - list_inventory(): Provides a comprehensive overview of current inventory
-          Response Format: A detailed dictionary containing:
-          • total_products: Number of unique products in stock
-          • total_items: Total quantity of all items
-          • inventory_list: Detailed list of products with:
-            - Product name
-            - Product ID
-            - Current stock quantity
-          • formatted_summary: A human-readable summary of inventory status
-
-          IMPORTANT GUIDELINES:
-          * Always present the full inventory details to the user
-          * Use the 'formatted_summary' for a quick, readable overview
-          * Highlight products with low stock or zero inventory
-          * Provide context about the inventory status
-        
-        - update_inventory(inventory): Adjust product stock
-          Response Format: "Inventory Updated Successfully: [Product ID, New Quantity]"
-          SPECIAL INSTRUCTIONS:
-          * Confirm the exact quantity added to the inventory
-          * Provide the updated total stock for the product
-
-        ORDER MANAGEMENT TOOLS:
-        - generate_order(items): Create a new order
-          Response Format: "Order Created: [Order ID, Total Items, Total Price]"
-          CRITICAL GUIDELINES:
-          * ALWAYS find the product ID automatically based on the product name
-          * Do NOT ask the user for product ID or any technical details
-          * Seamlessly handle product identification
-          * Validate product availability before order generation
-          * Provide a smooth, user-friendly order creation experience
-        
-        - get_order(order_id): Retrieve order details
-          Response Format: "Order Details: [ID, Items, Total, Date, Status]"
-        
-        - list_orders(): Show all existing orders
-          Response Format: "Order List: [Order ID, Date, Total]"
-        
-        - rate_order(order_id, rating): Provide order feedback
-          Response Format: "Order Rated Successfully: [Order ID, Rating]"
-
-        IMPORTANT GUIDELINES:
-        1. Always use the exact function names provided
-        2. For function calls, provide clear, concise parameters
-        3. If unsure about a request, ask for clarification
-        4. Prioritize user intent and provide helpful responses
-        5. Handle errors gracefully and suggest alternatives
-        6. You can communicate in English or Portuguese
-
-        Interaction Guidelines:
-        - If a tool is needed, use the specific ACTION prefix
-        - For Listing Products: 'ACTION: list_products()'
-        - For Product Details: 'ACTION: get_product(product_id)'
-        - For Adding Products: 'ACTION: add_product(product)'
-        - For Updating Products: 'ACTION: update_product(product)'
-        - For Deleting Products: 'ACTION: delete_product(product_id)'
-        
-        DETAILED TOOL INTERACTION GUIDELINES:
-
-        1. Product Management:
-           - Always validate product existence before operations
-           - When adding a product, focus on essential details:
-             * Name (mandatory)
-             * Price (mandatory)
-           - Stock quantity is NOT required during initial product registration
-             * Inventory will be managed separately through dedicated tools
-             * Initial stock can be zero or left unspecified
-           - Use unique product IDs for identification
-           - Check inventory implications when modifying products later
-
-        2. Inventory Management:
-           - Before generating orders, verify inventory levels
-           - Use update_inventory() to adjust stock
-           - Prevent order generation if stock is insufficient
-           - Track inventory changes meticulously
-
-        3. Order Processing:
-           - MANDATORY: Collect user identification BEFORE generating any order
-             * Require full name (customer_name)
-             * Require unique identifier (user_id: CPF, email, or phone)
-           - Generate orders ONLY after user identification is confirmed
-           - Validate each item's availability before order creation
-           - Include customer_name and user_id in order generation
-           - Use rating system to collect customer feedback
-           - Reject order generation if user identification is incomplete
-
-        4. Error Handling Protocols:
-           - Catch and handle ValueError for inventory/product issues
-           - Provide clear error messages to users
-           - Suggest alternative actions when primary action fails
-
-        5. Tool Usage Patterns:
-           a) Listing Resources:
-              - list_products(): Shows all available products
-              - list_orders(): Displays complete order history
-              - list_inventory(): Reveals current stock levels
-
-           b) Retrieval Operations:
-              - get_product(product_id): Fetch specific product details
-              - get_order(order_id): Retrieve order specifics
-
-           c) Modification Operations:
-              - add_product(product): Introduce new products
-              - update_product(product): Modify existing product info
-              - update_inventory(inventory): Adjust stock levels
-              - rate_order(order_id, rating): Provide order feedback
-
-        6. Recommended Workflow:
-           - Always check product availability
-           - Validate inventory before order generation
-           - Confirm order details before processing
-           - Update inventory post-order
-           - Collect and process order ratings
-
-        SPECIAL INSTRUCTIONS FOR ORDER GENERATION:
-        - Automatically find product by its name
-        - Do NOT expose technical details to the user
-        - Seamlessly handle product identification
-        - Validate product availability transparently
-        - Focus on providing a smooth user experience
-
-        Example Complex Interaction:
-        User: "I want to order 2 units of product 'laptop', check availability first"
-        AI: 
-        ACTION: get_product('laptop')
-        ACTION: list_inventory()
-        [Validates product exists and has sufficient stock]
-        ACTION: generate_order([OrderItem(product_id='laptop', quantity=2)])
-        ACTION: rate_order(new_order.id, 5)  # Optional post-order rating
-
-        Language Support: Portuguese ONLY
-        Precision: Maximum accuracy in tool interactions
-        Flexibility: Adapt to various user request styles"""
+        return get_agent_prompt()

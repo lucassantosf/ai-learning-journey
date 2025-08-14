@@ -5,12 +5,26 @@ from src.models.inventory import Inventory
 class InventoryMemRepository(InventoryRepository):
     def __init__(self):
         from src.utils.helpers import get_products
+        self._products = get_products()
         self._inventory: Dict[str, int] = {
             product_id: product.quantity 
-            for product_id, product in get_products().items()
+            for product_id, product in self._products.items()
         }
 
     def add(self, inventory: Inventory) -> None:
+        from src.models.product import Product
+        
+        # If product doesn't exist in products, create a temporary product
+        if inventory.product_id not in self._products:
+            temp_product = Product(
+                id=inventory.product_id, 
+                name=f"Temporary Product ({inventory.product_id})", 
+                price=0, 
+                quantity=0
+            )
+            self._products[inventory.product_id] = temp_product
+
+        # Add to inventory
         if inventory.product_id not in self._inventory:
             self._inventory[inventory.product_id] = 0
         self._inventory[inventory.product_id] += inventory.quantity
@@ -26,6 +40,6 @@ class InventoryMemRepository(InventoryRepository):
             Inventory(
                 product_id=pid, 
                 quantity=qtd, 
-                product_name=products[pid].name
+                product_name=products.get(pid, None).name if products.get(pid, None) else f"Unknown Product ({pid})"
             ) for pid, qtd in self._inventory.items()
         ]

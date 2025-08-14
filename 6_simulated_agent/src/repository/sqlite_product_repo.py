@@ -1,0 +1,127 @@
+from typing import List, Optional
+from sqlalchemy.orm.exc import NoResultFound
+from src.repository.interfaces.product_repository import ProductRepository
+from src.models.product import Product
+from src.repository.sqlite_base import db
+from src.repository.sqlite_models import ProductModel
+import uuid
+
+class SQLiteProductRepository(ProductRepository):
+    def __init__(self):
+        self.session = db.get_session()
+
+    def list_all(self) -> List[Product]:
+        """
+        List all products from the database
+        
+        :return: List of Product objects
+        """
+        product_models = self.session.query(ProductModel).all()
+        return [
+            Product(
+                id=model.id,
+                name=model.name,
+                price=model.price,
+                quantity=model.quantity,
+                average_rating=model.average_rating,
+                image_url=model.image_url
+            ) for model in product_models
+        ]
+
+    def find_by_id(self, product_id: str) -> Optional[Product]:
+        """
+        Find a product by its ID
+        
+        :param product_id: Product ID to search
+        :return: Product object or None
+        """
+        try:
+            model = self.session.query(ProductModel).filter_by(id=product_id).one()
+            return Product(
+                id=model.id,
+                name=model.name,
+                price=model.price,
+                quantity=model.quantity,
+                average_rating=model.average_rating,
+                image_url=model.image_url
+            )
+        except NoResultFound:
+            return None
+
+    def find_by_name(self, product_name: str) -> Optional[Product]:
+        """
+        Find a product by its name
+        
+        :param product_name: Product name to search
+        :return: Product object or None
+        """
+        try:
+            model = self.session.query(ProductModel).filter(ProductModel.name.ilike(f'%{product_name}%')).first()
+            if model:
+                return Product(
+                    id=model.id,
+                    name=model.name,
+                    price=model.price,
+                    quantity=model.quantity,
+                    average_rating=model.average_rating,
+                    image_url=model.image_url
+                )
+            return None
+        except Exception:
+            return None
+
+    def create(self, product: Product) -> None:
+        """
+        Create a new product in the database
+        
+        :param product: Product object to create
+        """
+        # Generate a unique ID if not provided
+        if not product.id:
+            # Use a more predictable ID format
+            product.id = f"p{self.session.query(ProductModel).count() + 1:03d}"
+
+        product_model = ProductModel(
+            id=product.id,
+            name=product.name,
+            price=product.price,
+            quantity=product.quantity or 0,
+            average_rating=product.average_rating or 0.0,
+            image_url=product.image_url
+        )
+        
+        self.session.add(product_model)
+        self.session.commit()
+
+    def update(self, product: Product) -> None:
+        """
+        Update an existing product in the database
+        
+        :param product: Product object to update
+        """
+        try:
+            product_model = self.session.query(ProductModel).filter_by(id=product.id).one()
+            
+            product_model.name = product.name
+            product_model.price = product.price
+            product_model.quantity = product.quantity
+            product_model.average_rating = product.average_rating
+            product_model.image_url = product.image_url
+            
+            self.session.commit()
+        except NoResultFound:
+            # If product not found, create a new one
+            self.create(product)
+
+    def delete(self, product_id: str) -> None:
+        """
+        Delete a product from the database
+        
+        :param product_id: ID of the product to delete
+        """
+        try:
+            product_model = self.session.query(ProductModel).filter_by(id=product_id).one()
+            self.session.delete(product_model)
+            self.session.commit()
+        except NoResultFound:
+            pass  # Silently ignore if product not found
