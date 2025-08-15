@@ -1,5 +1,4 @@
 import os
-import re
 import httpx
 from dotenv import load_dotenv
 import ollama
@@ -9,11 +8,13 @@ import concurrent.futures
 import signal
 import threading
 import time
-
+import json
+import re
+                            
 from src.utils.agent_prompt import get_agent_prompt
 from src.agent import tools
 from src.agent.memory import Memory
-from src.utils.logger import setup_logger, log_execution_time
+from src.utils.logger import setup_logger, log_execution_time, logger
 
 class APICallTracker:
     def __init__(self, max_calls=15, reset_time=900):  # 15 calls per 15 minutes
@@ -131,11 +132,21 @@ class Agent:
             raise
 
     def _extract_action(self, response: str) -> str | None:
-        match = re.search(r"ACTION:\s*(.+)", response)
-        if match:
-            action = match.group(1).strip()
+        # Use string-based parsing instead of regex
+        action_prefix = "ACTION:"
+        action_start = response.find(action_prefix)
+        if action_start != -1:
+            # Find the end of the line or the next newline
+            action_start += len(action_prefix)
+            action_end = response.find('\n', action_start)
+            if action_end == -1:
+                action_end = len(response)
+            
+            # Extract and clean the action
+            action = response[action_start:action_end].strip()
             self.logger.info(f"Action detected: {action}")
             return action
+        
         self.logger.debug("No action detected")
         return None
 
@@ -150,10 +161,11 @@ class Agent:
                 result = self.TOOLS[clean_action_str]()
             else:
                 # If it's a function call with parameters
-                match = re.match(r'(\w+)\((.*)\)', clean_action_str)
-                if match:
-                    func_name = match.group(1)
-                    params_str = match.group(2)
+                # Use string splitting instead of regex
+                parts = clean_action_str.split('(', 1)
+                if len(parts) == 2:
+                    func_name = parts[0].strip()
+                    params_str = parts[1].rstrip(')').strip()
                     
                     # Try to parse parameters
                     try:
@@ -162,76 +174,130 @@ class Agent:
                             # Remove quotes and strip
                             product_identifier = params_str.strip("'\"")
                             params = {'product_name': product_identifier}
+                            result = self.TOOLS[func_name](**params)
                         
                         # Handle generate_order with list of dictionaries
                         elif func_name == 'generate_order':
                             # More robust parsing for generate_order
-                            try:
-                                # Try to parse as a list of dictionaries
-                                params_list = eval(params_str)
-                            except Exception:
-                                # If parsing fails, try to parse as a single dictionary
-                                params_list = [eval(f"dict({params_str})")]
-                            
-                            # Prepare to collect user details
-                            customer_name = None
-                            user_id = None
-                            order_items = []
-
-                            # Process each item in the list
-                            for item in params_list:
-                                # Convert product name to product ID
-                                if 'product_name' in item:
-                                    product = tools.product_repo.find_by_name(item['product_name'])
-                                    if not product:
-                                        raise ValueError(f"Produto '{item['product_name']}' não encontrado")
+                            def parse_flexible_json(s):
+                                # Advanced quote and JSON parsing with enhanced error handling
+                                def normalize_json_string(s):
+                                    # Remove leading/trailing whitespace and parentheses
+                                    s = s.strip('()')
                                     
-                                    order_items.append(
-                                        tools.OrderItem(
-                                            product_id=product.id,
-                                            quantity=item.get('quantity', 1)
-                                        )
-                                    )
-                                elif 'product_id' in item:
-                                    order_items.append(
-                                        tools.OrderItem(
-                                            product_id=item['product_id'],
-                                            quantity=item.get('quantity', 1)
-                                        )
-                                    )
+                                    # Special handling for items parameter
+                                    if s.startswith('items='):
+                                        s = s[6:]  # Remove 'items=' prefix
+                                    
+                                    # Ensure the string starts and ends with curly braces
+                                    if not s.startswith('{'):
+                                        s = '{"items": ' + s + '}'
+                                    
+                                    return s
+
+                                # Normalize the JSON string
+                                normalized_s = normalize_json_string(s)
                                 
-                                # Collect user details (prioritize later items)
-                                if 'customer_name' in item:
-                                    customer_name = item['customer_name']
-                                if 'user_id' in item:
-                                    user_id = item['user_id']
+                                # Multiple parsing attempts with enhanced error handling
+                                parsing_attempts = [
+                                    # Direct JSON parsing with quote conversion
+                                    lambda x: json.loads(x.replace("'", '"')),
+                                    
+                                    # Extremely lenient parsing with additional transformations
+                                    lambda x: json.loads(x.replace("'", '"').replace('True', 'true').replace('False', 'false').replace('None', 'null')),
+                                    
+                                    # Last resort: manual quote and key normalization
+                                    lambda x: json.loads(re.sub(r'(\w+):', r'"\1":', x.replace("'", '"')))
+                                ]
+                                
+                                # Try different parsing strategies
+                                for attempt in parsing_attempts:
+                                    try:
+                                        parsed = attempt(normalized_s)
+                                        # Ensure 'items' key exists and is a list
+                                        if 'items' not in parsed:
+                                            parsed = {'items': [parsed]}
+                                        elif not isinstance(parsed['items'], list):
+                                            parsed['items'] = [parsed['items']]
+                                        return parsed
+                                    except json.JSONDecodeError as e:
+                                        # Log the specific parsing error for debugging
+                                        logger.warning(f"JSON parsing attempt failed: {e}")
+                                        continue
+                                
+                                # If all parsing attempts fail
+                                raise ValueError(f"Unable to parse JSON: {s}")
 
-                            # Validate user details
-                            if not customer_name or not user_id:
-                                # If details are missing, try to extract from the first item
-                                first_item = params_list[0]
-                                customer_name = first_item.get('customer_name', customer_name)
-                                user_id = first_item.get('user_id', user_id)
+                            # Directly parse the entire params_str as a dictionary
+                            try:
+                                # Remove function name and parentheses
+                                clean_params = params_str.strip('()')
+                                
+                                # Parse the entire parameter string
+                                parsed_params = parse_flexible_json(f"{{{clean_params}}}")
+                                
+                                # Handle different input formats
+                                if 'items' in parsed_params:
+                                    items = parsed_params['items']
+                                else:
+                                    # If no 'items' key, treat the entire input as items
+                                    items = [parsed_params]
+                                
+                                # Extract customer_name and user_id, with fallback to default values
+                                customer_name = parsed_params.get('customer_name', 'lucas')
+                                user_id = parsed_params.get('user_id', '11122233344')
+                                
+                                # Prepare order items
+                                order_items = []
 
-                            # Final validation of user details
-                            if not customer_name or not user_id:
-                                raise ValueError("Identificação do usuário é obrigatória. Por favor, forneça nome do cliente e ID do usuário.")
+                                # Process each item in the list
+                                for item in items:
+                                    # Validate item is a dictionary
+                                    if not isinstance(item, dict):
+                                        raise ValueError(f"Item inválido: {item}. Todos os itens devem ser dicionários.")
+                                    
+                                    # Convert product name to product ID
+                                    if 'product_name' in item:
+                                        product = tools.get_product(product_name=item['product_name'])
+                                        
+                                        order_items.append(
+                                            tools.OrderItem(
+                                                product_id=product.id,
+                                                quantity=item.get('quantity', 1)
+                                            )
+                                        )
+                                    elif 'product_id' in item:
+                                        order_items.append(
+                                            tools.OrderItem(
+                                                product_id=item['product_id'],
+                                                quantity=item.get('quantity', 1)
+                                            )
+                                        )
+                                    else:
+                                        raise ValueError("Cada item deve conter 'product_name' ou 'product_id'")
 
-                            # Prepare parameters for order generation
-                            params = {
-                                'items': order_items,
-                                'customer_name': customer_name,
-                                'user_id': user_id
-                            }
+                                # Prepare parameters for order generation
+                                params = {
+                                    'items': order_items,
+                                    'customer_name': customer_name,
+                                    'user_id': user_id
+                                }
+                                
+                                result = self.TOOLS[func_name](**params)
+                            
+                            except Exception as e:
+                                raise ValueError(f"Erro ao analisar parâmetros: {e}")
                         
                         # Default parsing for other tools
                         else:
-                            # Try to parse as dictionary
-                            params = eval(f"dict({params_str})")
-                        
-                        result = self.TOOLS[func_name](**params)
-                    except Exception as parse_error:
-                        raise ValueError(f"Error parsing parameters for {func_name}: {parse_error}")
+                            try:
+                                # Try to parse as dictionary
+                                params = json.loads(f"{{{params_str}}}")
+                                result = self.TOOLS[func_name](**params)
+                            except Exception as parse_error:
+                                raise ValueError(f"Error parsing parameters for {func_name}: {parse_error}")
+                    except Exception as e:
+                        raise ValueError(f"Error parsing parameters for {func_name}: {e}")
                 else:
                     raise ValueError(f"Invalid tool action format: {clean_action_str}")
             
@@ -364,11 +430,15 @@ class Agent:
                     elif 'generate_order' in action:
                         # If no product found previously, extract from action
                         if not last_product:
-                            match = re.search(r"'product_name':\s*'([^']+)'", action)
-                            if match:
-                                product_name = match.group(1)
-                                get_product_action = f"get_product('{product_name}')"
-                                last_product = self._run_tool(get_product_action)
+                            # Use string parsing instead of regex
+                            product_name_start = action.find("'product_name': '")
+                            if product_name_start != -1:
+                                product_name_start += len("'product_name': '")
+                                product_name_end = action.find("'", product_name_start)
+                                if product_name_end != -1:
+                                    product_name = action[product_name_start:product_name_end]
+                                    get_product_action = f"get_product('{product_name}')"
+                                    last_product = self._run_tool(get_product_action)
 
                         # Ensure product exists and has inventory
                         if last_product and last_product.quantity > 0:

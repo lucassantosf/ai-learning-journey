@@ -63,6 +63,10 @@ def generate_order(items, user_id=None, customer_name=None):
             first_item.get('full_name')
         )
 
+    # Normalize customer name to title case
+    if customer_name:
+        customer_name = customer_name.title()
+
     # Final validation of user identification
     if not user_id or not customer_name:
         raise ValueError(
@@ -76,11 +80,23 @@ def generate_order(items, user_id=None, customer_name=None):
     for item in items:
         # Handle both dictionary and OrderItem inputs
         if isinstance(item, dict):
-            product_id = (
-                product_repo.find_by_name(item.get('product_name')).id 
-                if 'product_name' in item 
-                else item.get('product_id')
-            )
+            # Find product by name, handling potential string returns
+            product_search = item.get('product_name')
+            if product_search:
+                try:
+                    product = get_product(product_name=product_search)
+                    product_id = product.id
+                except ValueError:
+                    # If product not found, try to add it
+                    try:
+                        add_product(product={'name': product_search, 'price': 50.00, 'quantity': 20})
+                        product = get_product(product_name=product_search)
+                        product_id = product.id
+                    except Exception as e:
+                        raise ValueError(f"Não foi possível encontrar ou adicionar o produto: {e}")
+            else:
+                product_id = item.get('product_id')
+            
             order_items.append(
                 OrderItem(
                     product_id=product_id,
@@ -138,7 +154,26 @@ def rate_order(order_id, rating):
 def list_products():
     products = product_repo.list_all()
     
-    # Se não houver produtos, retorna uma mensagem amigável
+    # Se products for uma string (sem produtos), retorna lista vazia
+    if isinstance(products, str):
+        return []
+    
+    # Se não houver produtos, retorna lista vazia
+    if not products:
+        return []
+    
+    # Retornar lista de produtos
+    return products
+
+@log_execution_time
+def format_products_list(products):
+    """
+    Formata a lista de produtos para exibição amigável
+    
+    :param products: Lista de objetos Product
+    :return: String formatada com detalhes dos produtos
+    """
+    # Se a lista estiver vazia, retorna mensagem amigável
     if not products:
         return "Não há produtos cadastrados no momento. Você pode adicionar novos produtos usando o comando 'add_product'."
     
@@ -154,10 +189,7 @@ def list_products():
         formatted_products.append(formatted_product)
     
     # Criar uma string formatada para exibição
-    product_list_str = "\n".join(formatted_products)
-    
-    # Retornar string formatada
-    return product_list_str
+    return "\n".join(formatted_products)
 
 @log_execution_time
 def get_product(product_name=None, product_id=None):
@@ -168,7 +200,14 @@ def get_product(product_name=None, product_id=None):
     :param product_id: ID of the product to find
     :return: Product details or raise an informative error
     """
-    products = product_repo.list_all()
+    # Ensure we have a list of products, not a string
+    products_result = product_repo.list_all()
+    
+    # If products_result is a string (no products), raise an exception
+    if isinstance(products_result, str):
+        raise ValueError("Não há produtos cadastrados no momento.")
+    
+    products = products_result
 
     # Normalize inputs
     if product_name:
@@ -187,14 +226,23 @@ def get_product(product_name=None, product_id=None):
         if product:
             return product
         
-    # Try to find by name (case-insensitive partial match)
+    # Try to find by name (case-insensitive, flexible matching)
     if product_name:
-        matching_product = next((p for p in products if product_name.lower() in p.name.lower()), None)
-        if matching_product:
-            return matching_product
+        # Remove quotes and extra whitespace
+        clean_name = product_name.lower().replace('"', '').replace("'", '').strip()
+        
+        # Try exact match first
+        for product in products:
+            if product.name.lower() == clean_name:
+                return product
+        
+        # Try partial match
+        for product in products:
+            if clean_name in product.name.lower():
+                return product
         
         # If no match, suggest similar products
-        similar_products = [p.name for p in products if product_name.lower() in p.name.lower()]
+        similar_products = [p.name for p in products if clean_name in p.name.lower()]
         if similar_products:
             raise ValueError(f"Produto '{product_name}' não encontrado. Produtos similares: {', '.join(similar_products)}")
         

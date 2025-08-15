@@ -31,3 +31,6 @@ def log_execution_time(func):
         logger.info(f"{func.__name__} took {duration:.2f}s")
         return result
     return wrapper
+
+# Create a global logger instance
+logger = setup_logger()
