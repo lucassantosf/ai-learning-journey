@@ -7,6 +7,8 @@ from openai import OpenAI
 import concurrent.futures
 import time
 import json
+import re 
+import ast
 
 from src.utils.agent_prompt import get_agent_prompt
 from src.agent import tools
@@ -100,75 +102,97 @@ class Agent:
         self.provider = 'gemini'
         self.logger.info("Gemini client initialized")
 
-    def _extract_action(self, response: str) -> str | None:
-        prefix = "ACTION:"
-        idx = response.find(prefix)
-        if idx != -1:
-            idx += len(prefix)
-            end = response.find('\n', idx)
-            if end == -1:
-                end = len(response)
-            action = response[idx:end].strip()
-            self.logger.info(f"Action detected: {action}")
-            return action
-        self.logger.debug("No action detected")
-        return None
 
-    def _run_tool(self, action_str: str):
-        self.logger.info(f"⚙️ Executing tool: {action_str}")
-        try:
-            clean_action = action_str.strip("'\"")
-            if clean_action in self.TOOLS:
-                result = self.TOOLS[clean_action]()
-            else:
-                # Parse function calls with parameters
-                func_name, params_str = clean_action.split('(', 1)
-                params_str = params_str.rstrip(')').strip()
-                if func_name == 'get_product':
-                    product_name = params_str.strip("'\"")
-                    result = self.TOOLS[func_name](product_name=product_name)
-                elif func_name == 'generate_order':
-                    items_str = params_str[6:].strip() if params_str.startswith('items=') else params_str
-                    items_list = json.loads(items_str.replace("'", '"'))
-                    if not isinstance(items_list, list):
-                        items_list = [items_list]
-                    order_items = []
-                    customer_name = None
-                    user_id = None
-                    for item in items_list:
-                        if 'customer_name' in item and not customer_name:
-                            customer_name = item.pop('customer_name')
-                        if 'user_id' in item and not user_id:
-                            user_id = item.pop('user_id')
-                        if 'product_name' in item:
-                            product = tools.get_product(product_name=item['product_name'])
-                            order_items.append(tools.OrderItem(product_id=product.id, quantity=item.get('quantity', 1)))
-                        elif 'product_id' in item:
-                            order_items.append(tools.OrderItem(product_id=item['product_id'], quantity=item.get('quantity', 1)))
-                        else:
-                            raise ValueError("Each item must have 'product_name' or 'product_id'")
-                    params = {'items': order_items, 'customer_name': customer_name or 'lucas', 'user_id': user_id or '11122233344'}
-                    result = self.TOOLS[func_name](**params)
+    def _extract_action(self, response: str) -> tuple[str, dict] | None:
+        """
+        Extrai ACTIONs do texto, convertendo os argumentos para dicts.
+        """
+        action_pattern = r"ACTION:\s*(\w+)\((.*?)\)"
+        match = re.search(action_pattern, response, re.DOTALL)
+        if not match:
+            return None
+
+        action_name, args_text = match.groups()
+        args_text = args_text.strip()
+
+        # Handle different argument formats
+        if not args_text:
+            args_dict = {}
+        else:
+            try:
+                # Try to parse as JSON first
+                args_dict = json.loads(args_text)
+            except json.JSONDecodeError:
+                # Handle key-value pair format
+                if '=' in args_text:
+                    # Split key-value pairs
+                    pairs = [p.strip() for p in args_text.split(',')]
+                    args_dict = {}
+                    for pair in pairs:
+                        if '=' in pair:
+                            key, value = pair.split('=', 1)
+                            # Remove quotes and strip
+                            key = key.strip().strip("'\"")
+                            value = value.strip().strip("'\"")
+                            args_dict[key] = value
                 else:
-                    params = json.loads(f"{{{params_str}}}")
-                    result = self.TOOLS[func_name](**params)
-            self.used_tools.append(clean_action)
-            self.logger.info(f"Tool executed successfully: {clean_action}")
-            return result
-        except Exception as e:
-            self.logger.error(f"Error running tool {action_str}: {e}")
-            return str(e)
+                    # Fallback to simple string parsing
+                    # Remove surrounding quotes if present
+                    clean_text = args_text.strip("'\"")
+                    
+                    # Determine if it's a product name or ID
+                    if clean_text.startswith('p'):
+                        args_dict = {"product_id": clean_text}
+                    else:
+                        args_dict = {"product_name": clean_text}
 
+        return (action_name, args_dict)
+
+    def _run_tool(self, action_name: str, args: dict):
+        """
+        Executa a ferramenta correspondente ao nome da ação.
+        """
+        tool = self.TOOLS.get(action_name)
+        if not tool:
+            raise ValueError(f"Tool '{action_name}' not found")
+
+        if args:
+            return tool(**args)
+        return tool()
+    
     def _map_user_intent(self, user_question: str) -> str | None:
         q = user_question.lower()
-        if "histórico de pedidos" in q or "meus pedidos" in q:
-            return "list_orders()"
-        if "estoque" in q or "produtos disponíveis" in q:
-            return "list_inventory()"
-        if "adicionar produto" in q:
-            return "add_product()"
-        return None
 
+        # mapeamento de palavras-chave para tool (pode evoluir para NLP simples se quiser)
+        keyword_map = {
+            "produto": "list_products",
+            "produtos": "list_products",
+            "listar produtos": "list_products",
+            "todos produtos": "list_products",
+            "estoque": "list_inventory",
+            "inventário": "list_inventory",
+            "meus pedidos": "list_orders",
+            "histórico de pedidos": "list_orders",
+            "adicionar": "add_product",
+            "atualizar": "update_product",
+            "deletar": "delete_product",
+            "remover": "delete_product",
+            "pedido": "generate_order",
+            "fazer compra": "generate_order",
+            "avaliar pedido": "rate_order",
+        }
+
+        for keyword, tool_name in keyword_map.items():
+            if keyword in q and tool_name in self.TOOLS:
+                return f"{tool_name}()"
+
+        # fallback: se o usuário escrever exatamente o nome de uma tool
+        for tool_name in self.TOOLS:
+            if tool_name in q:
+                return f"{tool_name}()"
+
+        return None
+    
     def _send_to_model(self, messages, timeout=30):
         if not self.api_call_tracker.can_make_call():
             raise TimeoutException("⚠️ Limite de chamadas de API excedido.")
@@ -217,52 +241,60 @@ class Agent:
         current_iteration = 0
         completed_actions = set()
         action_counts = {}
-        last_product = None
+        final_result = None  # Track the final result to return
 
         while current_iteration < max_iterations:
             messages = self.memory.get_context()
             response = self._send_to_model(messages)
             self.memory.add_message("assistant", response)
 
-            action = self._extract_action(response) or self._map_user_intent(user_question)
+            # Extrai ação do modelo
+            action_data = self._extract_action(response)
+            if action_data:
+                action_name, action_args = action_data
+            else:
+                action_name, action_args = self._map_user_intent(user_question), {}
 
-            if not action:
-                self.logger.info("Nenhuma ação detectada. Encerrando loop.")
+            if not action_name:
+                # Nenhuma ação detectada, retorna o último resultado ou resposta
+                if final_result:
+                    return final_result
                 return response
 
-            action_counts[action] = action_counts.get(action, 0) + 1
-            if action_counts[action] > 2:
-                self.logger.warning(f"Ação '{action}' repetida muitas vezes. Encerrando loop.")
+            # Contabiliza repetição de ações
+            action_counts[action_name] = action_counts.get(action_name, 0) + 1
+            if action_counts[action_name] > 2:
+                self.logger.warning(f"Ação '{action_name}' repetida muitas vezes. Encerrando loop.")
                 break
-            if action in completed_actions:
+
+            if action_name in completed_actions:
                 current_iteration += 1
                 continue
 
             try:
-                if 'get_product' in action:
-                    tool_result = self._run_tool(action)
-                    last_product = tool_result
-                elif 'generate_order' in action:
-                    if not last_product:
-                        product_name_start = action.find("'product_name': '")
-                        if product_name_start != -1:
-                            product_name_start += len("'product_name': '")
-                            product_name_end = action.find("'", product_name_start)
-                            product_name = action[product_name_start:product_name_end]
-                            last_product = self._run_tool(f"get_product('{product_name}')")
-                    tool_result = self._run_tool(action)
-                    return tool_result
-                else:
-                    tool_result = self._run_tool(action)
-                self.memory.add_message("function", str(tool_result), name=action)
-                completed_actions.add(action)
+                tool_result = None
+                if action_name in self.TOOLS or action_name in ["get_product", "generate_order", "list_products", "list_orders", "list_inventory"]:
+                    tool_result = self._run_tool(action_name, args=action_args)
+                    self.memory.add_message("function", str(tool_result), name=action_name)
+                    completed_actions.add(action_name)
+                    self.used_tools.append(action_name)
+
+                    # Store list actions, but don't return immediately
+                    if action_name in ["list_products", "list_orders", "list_inventory"]:
+                        final_result = tool_result
+                    
+                    # If generate_order is successful, return the order
+                    if action_name == "generate_order":
+                        return tool_result
+
             except Exception as e:
-                self.logger.error(f"Erro executando ação '{action}': {e}")
+                self.logger.error(f"Erro executando ação '{action_name}': {e}")
                 break
+
             current_iteration += 1
 
         self.logger.warning("Não foi possível concluir a tarefa completamente.")
         return "Não foi possível concluir a tarefa completamente."
-
+    
     def _system_prompt(self):
         return get_agent_prompt()

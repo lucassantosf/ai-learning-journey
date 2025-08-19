@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from src.models.order import Order, OrderItem
@@ -42,8 +43,8 @@ def generate_order(items, user_id=None, customer_name=None):
     if items and isinstance(items[0], dict):
         # Extract user details from first item if not provided directly
         first_item = items[0]
-        user_id = user_id or first_item.get('user_id')
-        customer_name = customer_name or first_item.get('customer_name')
+        user_id = user_id or first_item.get('user_id') or first_item.get('cpf')
+        customer_name = customer_name or first_item.get('customer_name') or first_item.get('name')
 
     # Attempt to extract user details from various possible sources
     if not user_id:
@@ -80,8 +81,8 @@ def generate_order(items, user_id=None, customer_name=None):
     for item in items:
         # Handle both dictionary and OrderItem inputs
         if isinstance(item, dict):
-            # Find product by name, handling potential string returns
-            product_search = item.get('product_name')
+            # Find product by name or ID
+            product_search = item.get('product_name') or item.get('product_id')
             if product_search:
                 try:
                     product = get_product(product_name=product_search)
@@ -95,7 +96,7 @@ def generate_order(items, user_id=None, customer_name=None):
                     except Exception as e:
                         raise ValueError(f"Não foi possível encontrar ou adicionar o produto: {e}")
             else:
-                product_id = item.get('product_id')
+                raise ValueError("Produto não especificado no item do pedido")
             
             order_items.append(
                 OrderItem(
@@ -193,62 +194,50 @@ def format_products_list(products):
 
 @log_execution_time
 def get_product(product_name=None, product_id=None):
-    """
-    Retrieve a product by name or ID
-    
-    :param product_name: Name of the product to find
-    :param product_id: ID of the product to find
-    :return: Product details or raise an informative error
-    """
-    # Ensure we have a list of products, not a string
-    products_result = product_repo.list_all()
-    
-    # If products_result is a string (no products), raise an exception
-    if isinstance(products_result, str):
-        raise ValueError("Não há produtos cadastrados no momento.")
-    
-    products = products_result
+    # Aggressive cleaning of product name
+    def clean_name(name):
+        if name is None:
+            return None
+        # Remove quotes, extra whitespace, and normalize
+        return re.sub(r'["\'\(\)]', '', str(name)).strip().lower()
 
     # Normalize inputs
-    if product_name:
-        product_name = product_name.strip("'\"")
-    if product_id:
-        product_id = product_id.strip("'\"")
+    clean_product_name = clean_name(product_name)
+    clean_product_id = clean_name(product_id)
 
     # If product_id looks like a product name, treat it as such
-    if product_id and not product_id.startswith('p'):
-        product_name = product_id
-        product_id = None
+    if clean_product_id and not clean_product_id.startswith('p'):
+        clean_product_name = clean_product_id
+        clean_product_id = None
+
+    # Get all products
+    products = product_repo.list_all()
 
     # Try to find by ID first
-    if product_id and product_id.startswith('p'):
-        product = next((p for p in products if p.id == product_id), None)
+    if clean_product_id and clean_product_id.startswith('p'):
+        product = next((p for p in products if p.id == clean_product_id), None)
         if product:
             return product
         
-    # Try to find by name (case-insensitive, flexible matching)
-    if product_name:
-        # Remove quotes and extra whitespace
-        clean_name = product_name.lower().replace('"', '').replace("'", '').strip()
+    # Try to find by name
+    if clean_product_name:
+        # Exact match
+        exact_match = next((p for p in products if clean_name(p.name) == clean_product_name), None)
+        if exact_match:
+            return exact_match
         
-        # Try exact match first
-        for product in products:
-            if product.name.lower() == clean_name:
-                return product
+        # Partial match
+        partial_match = next((p for p in products if clean_product_name in clean_name(p.name)), None)
+        if partial_match:
+            return partial_match
         
-        # Try partial match
-        for product in products:
-            if clean_name in product.name.lower():
-                return product
-        
-        # If no match, suggest similar products
-        similar_products = [p.name for p in products if clean_name in p.name.lower()]
+        # If no match, provide helpful error
+        similar_products = [p.name for p in products if clean_product_name in clean_name(p.name)]
         if similar_products:
             raise ValueError(f"Produto '{product_name}' não encontrado. Produtos similares: {', '.join(similar_products)}")
         
         raise ValueError(f"Produto '{product_name}' não encontrado")
     
-    # If both name and ID are None or empty
     raise ValueError("Nome ou ID do produto deve ser fornecido")
 
 @log_execution_time
