@@ -1,4 +1,7 @@
 import re
+import ast
+import uuid
+from datetime import datetime
 from dataclasses import dataclass
 from datetime import datetime
 from src.models.order import Order, OrderItem
@@ -25,118 +28,63 @@ order_repo = SQLiteOrderRepository()
 inventory_repo = SQLiteInventoryRepository()
 
 @log_execution_time
-def generate_order(items, user_id=None, customer_name=None):
+def generate_order(items):
     """
-    Generate a new order with given items
-    
-    :param items: List of order items or a single dictionary
-    :param user_id: Unique user identifier (required)
-    :param customer_name: Full name of the customer (required)
-    :return: Created order
-    :raises ValueError: If user identification is incomplete
+    Gera um pedido com base nos itens passados.
+    Aceita:
+      - Lista de dicts
+      - Um único dict
+      - String representando dict/list (vinda do modelo)
     """
-    # Handle case where items is a single dictionary
+
+    # Se vier string, tenta converter
+    if isinstance(items, str):
+        try:
+            items = ast.literal_eval(items)  # converte string para objeto Python
+        except Exception:
+            raise ValueError(f"❌ items inválido (não pôde ser convertido): {items}")
+
+    # Se for dict único, transforma em lista
     if isinstance(items, dict):
         items = [items]
 
-    # Normalize and validate user identification
-    if items and isinstance(items[0], dict):
-        # Extract user details from first item if not provided directly
-        first_item = items[0]
-        user_id = user_id or first_item.get('user_id') or first_item.get('cpf')
-        customer_name = customer_name or first_item.get('customer_name') or first_item.get('name')
+    if not isinstance(items, list):
+        raise ValueError("❌ items deve ser lista de dicionários")
 
-    # Attempt to extract user details from various possible sources
-    if not user_id:
-        # Try to find user_id in various formats
-        user_id = (
-            first_item.get('user_id') or 
-            first_item.get('cpf') or 
-            first_item.get('id') or 
-            first_item.get('customer_id')
-        )
+    order = {
+        "order_id": str(uuid.uuid4()),
+        "customer_name": None,
+        "user_id": None,
+        "items": [],
+        "total": 0.0,
+        "created_at": datetime.now().isoformat()
+    }
 
-    if not customer_name:
-        # Try to find customer_name in various formats
-        customer_name = (
-            first_item.get('customer_name') or 
-            first_item.get('name') or 
-            first_item.get('full_name')
-        )
-
-    # Normalize customer name to title case
-    if customer_name:
-        customer_name = customer_name.title()
-
-    # Final validation of user identification
-    if not user_id or not customer_name:
-        raise ValueError(
-            "Identificação do usuário é obrigatória. " 
-            "Por favor, forneça nome do cliente e ID do usuário. " 
-            "Detalhes fornecidos: " + str(first_item)
-        )
-
-    # Normalize items if they are dictionaries
-    order_items = []
     for item in items:
-        # Handle both dictionary and OrderItem inputs
-        if isinstance(item, dict):
-            # Find product by name or ID
-            product_search = item.get('product_name') or item.get('product_id')
-            if product_search:
-                try:
-                    product = get_product(product_name=product_search)
-                    product_id = product.id
-                except ValueError:
-                    # If product not found, try to add it
-                    try:
-                        add_product(product={'name': product_search, 'price': 50.00, 'quantity': 20})
-                        product = get_product(product_name=product_search)
-                        product_id = product.id
-                    except Exception as e:
-                        raise ValueError(f"Não foi possível encontrar ou adicionar o produto: {e}")
-            else:
-                raise ValueError("Produto não especificado no item do pedido")
-            
-            order_items.append(
-                OrderItem(
-                    product_id=product_id,
-                    quantity=item.get('quantity', 1)
-                )
-            )
-        elif isinstance(item, OrderItem):
-            order_items.append(item)
-        else:
-            raise ValueError(f"Invalid item type: {type(item)}")
+        if not isinstance(item, dict):
+            raise ValueError(f"❌ Item inválido: {item}. Esperado dict.")
 
-    # Validate product availability and inventory
-    for item in order_items:
-        product = product_repo.find_by_id(item.product_id)
+        product_name = item.get("product_name")
+        quantity = item.get("quantity", 1)
+        customer_name = item.get("customer_name")
+        user_id = item.get("user_id")
+
+        # Busca produto
+        product = get_product(product_name)
         if not product:
-            raise ValueError(f"Produto {item.product_id} não encontrado")
-        
-        current_inventory = next(
-            (inv for inv in inventory_repo.list_all() if inv.product_id == item.product_id), 
-            None
-        )
-        
-        if not current_inventory or current_inventory.quantity < item.quantity:
-            raise ValueError(f"Estoque insuficiente para o produto {item.product_id}")
-    
-    # Generate order with full user identification
-    order = Order(
-        id=f"order_{len(order_repo.list_all()) + 1:03d}", 
-        user_id=user_id,
-        customer_name=customer_name,
-        items=order_items, 
-        creation_date=datetime.now()
-    )
-    order_repo.create(order)
-    
-    # Update inventory
-    for item in order_items:
-        inventory_repo.remove(item.product_id, item.quantity)
-    
+            raise ValueError(f"❌ Produto '{product_name}' não encontrado.")
+
+        # Atualiza dados do pedido
+        order["customer_name"] = customer_name
+        order["user_id"] = user_id
+        order["items"].append({
+            "product_name": product.name,
+            "quantity": quantity,
+            "unit_price": product.price,
+            "subtotal": product.price * quantity
+        })
+        order["total"] += product.price * quantity
+
     return order
 
 @log_execution_time
