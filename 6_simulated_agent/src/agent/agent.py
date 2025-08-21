@@ -117,27 +117,35 @@ class Agent:
         args_text = args_text.strip()
 
         if not args_text:
-            return {}
-        
-        try:
-            # tenta interpretar como literal Python
-            args_dict = ast.literal_eval(f"dict({args_text})")
-            if not isinstance(args_dict, dict):
-                args_dict = {'items': args_dict}  # fallback para lista de items
-        except Exception:
+            return action_name, {}
+
+        args_dict = {}
+
+        # Caso especial: items=[...]
+        items_match = re.search(r"items\s*=\s*(\[.*\])", args_text, re.DOTALL)
+        if items_match:
+            items_str = items_match.group(1)
             try:
-                # tenta como JSON
-                args_dict = json.loads(args_text.replace("'", '"'))
+                items = ast.literal_eval(items_str)
             except Exception:
-                # fallback key=value
-                args_dict = {}
-                pairs = [p.strip() for p in args_text.split(',')]
-                for pair in pairs:
-                    if '=' in pair:
-                        key, value = pair.split('=', 1)
-                        key = key.strip()
-                        value = value.strip().strip("'\"")
-                        args_dict[key] = value
+                try:
+                    items = json.loads(items_str.replace("'", '"'))
+                except Exception:
+                    items = [items_str]  # fallback
+            args_dict["items"] = items
+
+            # Remove o trecho de items=... do args_text para não duplicar
+            args_text = re.sub(r"items\s*=\s*\[.*\]", "", args_text, flags=re.DOTALL).strip(", ")
+
+        # Agora processa os outros key=value
+        if args_text:
+            pairs = [p.strip() for p in args_text.split(',')]
+            for pair in pairs:
+                if '=' in pair:
+                    key, value = pair.split('=', 1)
+                    key = key.strip()
+                    value = value.strip().strip("'\"")
+                    args_dict[key] = value
 
         return action_name, args_dict
     
@@ -318,7 +326,7 @@ class Agent:
             if action_data:
                 action_name, action_args = action_data
             else:
-                action_name, action_args = self._map_user_intent(user_question), {}
+                action_name, action_args = None, None
 
             if not action_name:
                 return final_result if final_result else response
