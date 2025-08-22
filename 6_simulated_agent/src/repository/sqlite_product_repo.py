@@ -70,7 +70,7 @@ class SQLiteProductRepository(ProductRepository):
         except Exception:
             return None
 
-    def create(self, product: Product) -> None:
+    def create(self, product: Product) -> Product:
         """
         Create a new product in the database
         
@@ -92,6 +92,8 @@ class SQLiteProductRepository(ProductRepository):
         
         self.session.add(product_model)
         self.session.commit()
+
+        return product
 
     def update(self, product: Product) -> None:
         """

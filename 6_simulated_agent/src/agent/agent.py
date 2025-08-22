@@ -378,6 +378,11 @@ class Agent:
                     # Guarda resultados de listagens
                     if action_name in ["list_products", "list_orders", "list_inventory"]:
                         final_result = serialized_result
+                        # se a lista estiver vazia, responde direto
+                        if not serialized_result:
+                            return "Não há dados cadastrados no momento."
+                        # caso contrário, retorna já formatado
+                        return serialized_result
 
                     # Retorna imediatamente se order gerada com sucesso
                     if action_name == "generate_order":

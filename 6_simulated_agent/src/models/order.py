@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List
+from src.models.orderItem import OrderItem
 
 @dataclass
 class OrderItem:
@@ -13,7 +14,7 @@ class Order:
     user_id: str
     customer_name: str
     items: List[OrderItem]
-    creation_date: datetime
+    created_at: datetime
     rating: float = None
 
     def __post_init__(self):

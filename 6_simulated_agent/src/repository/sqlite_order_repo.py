@@ -22,7 +22,7 @@ class SQLiteOrderRepository(OrderRepository):
                 id=model.id,
                 user_id=model.user_id,
                 customer_name=model.customer_name,
-                creation_date=model.creation_date,
+                created_at=model.created_at,
                 rating=model.rating,
                 items=[
                     OrderItem(
@@ -46,7 +46,7 @@ class SQLiteOrderRepository(OrderRepository):
                 id=model.id,
                 user_id=model.user_id,
                 customer_name=model.customer_name,
-                creation_date=model.creation_date,
+                created_at=model.created_at,
                 rating=model.rating,
                 items=[
                     OrderItem(
@@ -76,7 +76,7 @@ class SQLiteOrderRepository(OrderRepository):
             id=order.id,
             user_id=order.user_id,
             customer_name=order.customer_name,
-            creation_date=order.creation_date or datetime.now(),
+            created_at=order.created_at or datetime.now(),
             rating=order.rating
         )
         

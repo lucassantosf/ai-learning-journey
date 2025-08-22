@@ -22,47 +22,48 @@ def test_memory_repositories():
     # Initialize repositories
     product_repo = ProductMemRepository()
     order_repo = OrderMemRepository()
-    inventory_repo = InventoryMemRepository()
+    inventory_repo = InventoryMemRepository(product_repo)
 
     print("✅ Available Products:")
-    pprint(product_repo.list_all())
+    product_list = product_repo.list_all()
+    pprint(product_list)
     print("\n")
 
     # Test: Create new product
     new_product = Product(name="RGB Gaming Headset", price=150)
-    product_repo.create(new_product)
+    product = product_repo.create(new_product)
     print("➕ Product Created:")
-    pprint(product_repo.find_by_id("p011"))
+    pprint(product_repo.find_by_id(product.id))
     print("\n")
 
     # Test: Update product
-    product_to_update = product_repo.find_by_id("p011")
-    product_to_update.average_rating = 4.7
+    product_to_update = product_repo.find_by_id(product.id)
+    product_to_update.name = f"{product_to_update.name} - Updated"
     product_repo.update(product_to_update)
-    print("✏️ Product Updated (rating):")
-    pprint(product_repo.find_by_id("p011"))
+    print("✏️ Product Updated (name):")
+    pprint(product_repo.find_by_id(product.id))
     print("\n")
 
     # Test: Add inventory
-    inventory_repo.add(Inventory(product_id="p011", quantity=5))
+    inventory_repo.add(Inventory(product_id=product.id, quantity=5))
     print("➕ Inventory after adding 5 units:")
     pprint(inventory_repo.list_all())
     print("\n")
 
     # Test: Remove inventory
-    inventory_repo.remove(product_id="p011", quantity=3)
+    inventory_repo.remove(product_id=product.id, quantity=3)
     print("➖ Inventory after removing 3 units:")
     pprint(inventory_repo.list_all())
     print("\n")
 
     # Test: Create order
-    items = [OrderItem(product_id="p001", quantity=1), OrderItem(product_id="p002", quantity=2)]
+    items = [OrderItem(product_id=product_list[0].id, quantity=1), OrderItem(product_id=product_list[1].id, quantity=2)]
     new_order = Order(
         id="order_001", 
         user_id="test_user", 
         customer_name="Test Customer", 
         items=items, 
-        creation_date=datetime.now()
+        created_at=datetime.now()
     )
     order_repo.create(new_order)
     print("📦 Order Created:")
@@ -104,7 +105,8 @@ def test_sqlite_repositories():
     inventory_repo = SQLiteInventoryRepository()
 
     print("✅ Initial Product List:")
-    pprint(product_repo.list_all())
+    product_list = product_repo.list_all()
+    pprint(product_list)
     print("\n")
 
     # Test: Create new product
@@ -142,7 +144,7 @@ def test_sqlite_repositories():
         user_id="sqlite_test_user", 
         customer_name="SQLite Test Customer", 
         items=items, 
-        creation_date=datetime.now()
+        created_at=datetime.now()
     )
     order_repo.create(new_order)
     print("📦 Order Created:")

@@ -2,12 +2,9 @@ import re
 import ast
 import uuid
 from datetime import datetime
-from dataclasses import dataclass
 from datetime import datetime
-from src.models.order import Order, OrderItem
 from src.models.product import Product
 from src.models.inventory import Inventory
-from typing import List, Optional
 from src.utils.logger import setup_logger, log_execution_time
 
 # Inicializa logger
@@ -189,38 +186,25 @@ def get_product(product_name=None, product_id=None):
     raise ValueError("Nome ou ID do produto deve ser fornecido")
 
 @log_execution_time
-def add_product(product=None, **kwargs):
-    # Handle different input formats
-    if product is None:
-        product = kwargs
+def add_product(name, price):
+
+    # Converte para float (ou int, se quiser somente valores inteiros)
+    try:
+        price = float(price)
+    except ValueError:
+        raise ValueError("Preço do produto deve ser numérico")
     
-    # If product is a string, assume it's the name
-    if isinstance(product, str):
-        product = {'name': product}
-    
-    # Convert dictionary to Product if needed
-    if isinstance(product, dict):
-        # Normalize keys to lowercase
-        product = {k.lower(): v for k, v in product.items()}
-        
-        # Handle different possible key names
-        name = product.get('name') or product.get('product') or product.get('nome')
-        price = product.get('price') or product.get('preco') or product.get('valor')
-        quantity = product.get('quantity', 0) or product.get('quantidade', 0)
-        
-        product = Product(
-            name=name,
-            price=price,
-            quantity=quantity
-        )
+    product = Product(
+        name=name,
+        price=price,
+        quantity=0
+    )
     
     # Validate required fields
-    if not product.name:
+    if not name:
         raise ValueError("Nome do produto é obrigatório")
-    if product.price is None or product.price < 0:
+    if not price or price < 0:
         raise ValueError("Preço do produto deve ser um número não negativo")
-    if product.quantity is None or product.quantity < 0:
-        raise ValueError("Quantidade do produto deve ser um número não negativo")
     
     # Create the product
     product_repo.create(product)

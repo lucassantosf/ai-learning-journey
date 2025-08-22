@@ -20,7 +20,7 @@ class OrderModel(Base):
     id = Column(String, primary_key=True)
     user_id = Column(String, nullable=False)
     customer_name = Column(String, nullable=False)
-    creation_date = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=datetime.now)
     rating = Column(Float)
 
     # Relationship to OrderItemModel

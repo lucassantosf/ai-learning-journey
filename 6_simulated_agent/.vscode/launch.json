@@ -2,10 +2,21 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: agent.py",
+            "name": "Python: tests/agent.py",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/tests/agent.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Python: tests/repositories.py",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/tests/repositories.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "env": {

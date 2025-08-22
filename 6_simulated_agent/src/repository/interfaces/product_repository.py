@@ -12,7 +12,7 @@ class ProductRepository(ABC):
         pass
 
     @abstractmethod
-    def create(self, product: Product) -> None:
+    def create(self, product: Product) -> Product:
         pass
 
     @abstractmethod

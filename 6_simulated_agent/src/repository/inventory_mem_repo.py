@@ -1,11 +1,11 @@
 from typing import Dict, List
 from src.repository.interfaces.inventory_repository import InventoryRepository
 from src.models.inventory import Inventory
+from src.repository.product_mem_repo import ProductMemRepository
 
 class InventoryMemRepository(InventoryRepository):
-    def __init__(self):
-        from src.utils.helpers import get_products
-        self._products = get_products()
+    def __init__(self, product_repo: ProductMemRepository):
+        self._products = product_repo._products
         self._inventory: Dict[str, int] = {
             product_id: product.quantity 
             for product_id, product in self._products.items()
@@ -14,7 +14,6 @@ class InventoryMemRepository(InventoryRepository):
     def add(self, inventory: Inventory) -> None:
         from src.models.product import Product
         
-        # If product doesn't exist in products, create a temporary product
         if inventory.product_id not in self._products:
             temp_product = Product(
                 id=inventory.product_id, 
@@ -34,12 +33,11 @@ class InventoryMemRepository(InventoryRepository):
             self._inventory[product_id] = max(0, self._inventory[product_id] - quantity)
 
     def list_all(self) -> List[Inventory]:
-        from src.utils.helpers import get_products
-        products = get_products()
         return [
             Inventory(
-                product_id=pid, 
-                quantity=qtd, 
-                product_name=products.get(pid, None).name if products.get(pid, None) else f"Unknown Product ({pid})"
-            ) for pid, qtd in self._inventory.items()
+                product_id=pid,
+                quantity=qtd,
+                product_name=self._products[pid].name if pid in self._products else f"Unknown Product ({pid})"
+            )
+            for pid, qtd in self._inventory.items()
         ]
