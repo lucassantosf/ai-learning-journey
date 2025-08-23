@@ -17,13 +17,15 @@ PRODUCT MANAGEMENT TOOLS:
 
 - get_product(product_name=None, product_id=None): Retrieve details of a product  
   **Response Format:** "Detalhes do Produto: ID, Nome, Preço, Quantidade, Avaliação"
+  IMPORTANT: describe each field clearly and its value.
 
 - add_product(name,price): Add a new product  
   **Response Format:** "Produto '[name]' adicionado com sucesso"  
   IMPORTANT: Do NOT request a product ID from the user. The system generates it automatically.
 
-- update_product(name,price): Update an existing product (dict or Product object)  
+- update_product(product_id, **kwargs): Update an existing product (Only name, price or image_url can be updated)  
   **Response Format:** "Produto '[name]' atualizado com sucesso"
+  IMPORTANT: Do NOT request a product ID from the user. Use the tool get_product with the old name to find the ID.
 
 - delete_product(product_id=None): Delete products from the catalog  
   **Response Format:**  

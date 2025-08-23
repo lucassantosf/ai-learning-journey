@@ -216,37 +216,40 @@ def add_product(name, price):
     return f"Produto '{product.name}' adicionado com sucesso"
 
 @log_execution_time
-def update_product(product):
-    # Se for um dicionário, encontrar o produto pelo nome ou ID
-    if isinstance(product, dict):
-        # Encontrar o produto pelo nome ou ID
-        products = product_repo.list_all()
-        
-        # Primeiro tenta encontrar pelo ID
-        if product.get('id'):
-            matching_product = next((p for p in products if p.id == product.get('id')), None)
-        
-        # Se não encontrar pelo ID, tenta pelo nome
-        if not matching_product and product.get('name'):
-            matching_product = next((p for p in products if p.name == product.get('name')), None)
-        
-        if not matching_product:
-            raise ValueError(f"Produto não encontrado. Forneça um nome ou ID válido.")
-        
-        # Atualizar os campos do produto existente
-        if 'name' in product:
-            matching_product.name = product['name']
-        if 'price' in product:
-            matching_product.price = product['price']
-        if 'quantity' in product:
-            matching_product.quantity = product['quantity']
-        
-        product_repo.update(matching_product)
-        
-        return f"Produto '{matching_product.name}' atualizado com sucesso"
+def update_product(product_id, **kwargs):
+    """
+    Atualiza um produto existente na base.
+    """
+    products = product_repo.list_all()
     
-    # Se já for um objeto Product, atualizar normalmente
-    product_repo.update(product)
+    # Encontra o produto pelo ID.
+    # Usamos o `product_id` que já foi passado como argumento.
+    matching_product = next((p for p in products if p.id == product_id), None)
+    
+    # Se não encontrar, lança o erro.
+    if not matching_product:
+        raise ValueError("Produto não encontrado. Forneça um ID válido.")
+    
+    # Atualiza os campos existentes a partir de kwargs
+    if "name" in kwargs:
+        matching_product.name = kwargs["name"]
+    if "price" in kwargs:
+        # Garante que o preço seja float antes de atribuir
+        try:
+            matching_product.price = float(kwargs["price"])
+        except ValueError:
+            raise ValueError("Preço inválido")
+    if "quantity" in kwargs:
+        matching_product.quantity = kwargs["quantity"]
+    if "average_rating" in kwargs:
+        matching_product.average_rating = kwargs["average_rating"]
+    if "image_url" in kwargs:
+        matching_product.image_url = kwargs["image_url"]
+    
+    # Persiste a mudança.
+    product_repo.update(matching_product)
+    
+    return f"Produto '{matching_product.name}' atualizado com sucesso"
 
 @log_execution_time
 def delete_product(product_id: str = None):

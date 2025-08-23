@@ -351,7 +351,7 @@ class Agent:
                     self.logger.debug(f"Items normalizados: {action_args['items']}")
 
                 tool_result = None
-                if action_name in self.TOOLS or action_name in ["get_product", "generate_order", "list_products", "list_orders", "list_inventory"]:
+                if action_name in self.TOOLS:
                     tool_result = self._run_tool(action_name, args=action_args)
 
                     # Serializa resultados complexos

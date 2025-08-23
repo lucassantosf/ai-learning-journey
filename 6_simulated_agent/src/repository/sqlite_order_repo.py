@@ -99,14 +99,22 @@ class SQLiteOrderRepository(OrderRepository):
 
     def rate(self, order_id: str, rating: int) -> None:
         """
-        Rate an order
-        
-        :param order_id: ID of the order to rate
-        :param rating: Rating value
+        Rate an order and update the average rating of its products
         """
         try:
             order_model = self.session.query(OrderModel).filter_by(id=order_id).one()
             order_model.rating = rating
+
+            # Atualiza os produtos do pedido
+            for item in order_model.items:
+                product = self.session.query(ProductModel).filter_by(id=item.product_id).one_or_none()
+                if product:
+                    if product.average_rating is None:
+                        product.average_rating = rating
+                    else:
+                        product.average_rating = (product.average_rating + rating) / 2
+
             self.session.commit()
+
         except NoResultFound:
             pass  # Silently ignore if order not found

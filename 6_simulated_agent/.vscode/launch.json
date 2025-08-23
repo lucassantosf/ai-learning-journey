@@ -22,6 +22,17 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
             }
+        },
+        {
+            "name": "Python: utils/sqlite_seeder.py",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/utils/sqlite_seeder.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
         }
     ]
 }

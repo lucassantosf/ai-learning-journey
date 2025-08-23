@@ -1,12 +1,13 @@
 from typing import Dict, List
 from src.repository.interfaces.order_repository import OrderRepository
+from src.repository.product_mem_repo import ProductMemRepository
 from src.models.order import Order
-from datetime import datetime
 
 class OrderMemRepository(OrderRepository):
-    def __init__(self):
+    def __init__(self, product_repo: ProductMemRepository):
         self._orders: Dict[str, Order] = {}
-
+        self._product_repo = product_repo
+        
     def list_all(self) -> List[Order]:
         return list(self._orders.values())
 
@@ -18,4 +19,17 @@ class OrderMemRepository(OrderRepository):
 
     def rate(self, order_id: str, rating: float) -> None:
         if order_id in self._orders:
-            self._orders[order_id].rating = rating
+            order = self._orders[order_id]
+            order.rating = rating
+
+            # Atualiza a média dos produtos do pedido
+            for item in order.items:
+                product = self._product_repo.find_by_id(item.product_id)
+                if product:
+                    # Exemplo simples: média ponderada incremental
+                    if product.average_rating is None:
+                        product.average_rating = rating
+                    else:
+                        product.average_rating = (product.average_rating + rating) / 2
+                    
+                    self._product_repo.update(product)
