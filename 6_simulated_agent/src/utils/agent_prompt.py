@@ -27,10 +27,9 @@ PRODUCT MANAGEMENT TOOLS:
   **Response Format:** "Produto '[name]' atualizado com sucesso"
   IMPORTANT: Do NOT request a product ID from the user. Use the tool get_product with the old name to find the ID.
 
-- delete_product(product_id=None): Delete products from the catalog  
-  **Response Format:**  
-  - If `product_id` or product name is provided → "Produto '[name]' deletado com sucesso"  
-  - If no parameter is provided → delete ALL products and return a clear summary.
+- delete_product(product_id): Delete products from the catalog  
+  **Response Format:** "Produto '[name]' deletado com sucesso"  
+  IMPORTANT: Do NOT request a product ID from the user. Use the tool get_product with the name to find the ID if you don't have it already from the history.
 
 ---
 

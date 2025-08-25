@@ -5,6 +5,7 @@ from src.models.product import Product
 from src.repository.sqlite_base import db
 from src.repository.sqlite_models import ProductModel
 import uuid
+from sqlalchemy.orm import joinedload
 
 class SQLiteProductRepository(ProductRepository):
     def __init__(self):
@@ -16,15 +17,20 @@ class SQLiteProductRepository(ProductRepository):
         
         :return: List of Product objects
         """
-        product_models = self.session.query(ProductModel).all()
+        product_models = (
+            self.session.query(ProductModel)
+            .options(joinedload(ProductModel.inventory))  # carrega estoque junto
+            .all()
+        )
+
         return [
             Product(
                 id=model.id,
                 name=model.name,
                 price=model.price,
-                quantity=model.quantity,
                 average_rating=model.average_rating,
-                image_url=model.image_url
+                image_url=model.image_url,
+                quantity=(model.inventory[0].quantity if model.inventory else 0)
             ) for model in product_models
         ]
 
@@ -36,12 +42,21 @@ class SQLiteProductRepository(ProductRepository):
         :return: Product object or None
         """
         try:
-            model = self.session.query(ProductModel).filter_by(id=product_id).one()
+            model = (       
+                self.session.query(ProductModel)
+                .options(joinedload(ProductModel.inventory))
+                .filter_by(id=product_id)
+                .one_or_none()
+            )
+
+            if not model:
+                return None
+            
             return Product(
                 id=model.id,
                 name=model.name,
                 price=model.price,
-                quantity=model.quantity,
+                quantity=(model.inventory[0].quantity if model.inventory else 0),
                 average_rating=model.average_rating,
                 image_url=model.image_url
             )
@@ -50,19 +65,25 @@ class SQLiteProductRepository(ProductRepository):
 
     def find_by_name(self, product_name: str) -> Optional[Product]:
         """
-        Find a product by its name
-        
-        :param product_name: Product name to search
-        :return: Product object or None
+        Find the first product that matches the given name.
+        Quantity comes from the related Inventory table.
         """
         try:
-            model = self.session.query(ProductModel).filter(ProductModel.name.ilike(f'%{product_name}%')).first()
+            model = (
+                self.session.query(ProductModel)
+                .filter(ProductModel.name.ilike(f"%{product_name}%"))
+                .first()
+            )
+
             if model:
+                # pega a quantidade do relacionamento inventory
+                quantity = model.inventory.quantity if model.inventory else 0  
+
                 return Product(
                     id=model.id,
                     name=model.name,
                     price=model.price,
-                    quantity=model.quantity,
+                    quantity=quantity,
                     average_rating=model.average_rating,
                     image_url=model.image_url
                 )
@@ -126,4 +147,4 @@ class SQLiteProductRepository(ProductRepository):
             self.session.delete(product_model)
             self.session.commit()
         except NoResultFound:
-            pass  # Silently ignore if product not found
+            return None

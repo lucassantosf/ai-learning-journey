@@ -1,11 +1,28 @@
 import sys
 import os
 import readline
+import atexit
+
+# Arquivo para armazenar histórico (pode escolher outro caminho se quiser separar)
+histfile = os.path.expanduser("~/.agent_chat_history")
+
+# Carrega histórico anterior (se existir)
+try:
+    readline.read_history_file(histfile)
+except FileNotFoundError:
+    pass
+
+# Mantém no máximo 1000 entradas
+readline.set_history_length(1000)
+
+# Salva histórico no fim da execução também (caso saia de forma limpa)
+atexit.register(readline.write_history_file, histfile)
 
 # Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.agent.agent import Agent
+
 
 def test_simple_communication():
     """
@@ -13,29 +30,25 @@ def test_simple_communication():
     
     This test checks if each provider can respond to a simple greeting.
     """
-    # Test providers
     providers = ['openai', 'ollama', 'gemini']
 
-    # Run simple communication test for each provider
     for provider in providers:
         print(f"\n--- Testing {provider.upper()} Provider Communication ---")
         try:
-            # Initialize the agent with the current provider
             agent = Agent(provider)
-            
-            # Simple greeting test
+
             greeting = "Oi, boa tarde!"
             print(f"Sending greeting: {greeting}")
-            
+
             try:
-                # Call the agent with a simple greeting
                 response = agent.call(greeting)
                 print(f"{provider.upper()} Response: {response}")
             except Exception as communication_error:
                 print(f"Communication error with {provider}: {communication_error}")
-        
+
         except Exception as provider_error:
             print(f"Failed to initialize {provider} provider: {provider_error}")
+
 
 def interactive_chat():
     """
@@ -50,63 +63,57 @@ def interactive_chat():
         print("2. Ollama")
         print("3. Gemini")
         print("4. Exit")
-        
-        # Get provider selection
+
         while True:
             try:
                 choice = int(input("Enter the number of the provider (1-4): "))
+                readline.write_history_file(histfile)  # salva histórico a cada input
+
                 if choice not in [1, 2, 3, 4]:
                     print("Invalid selection. Please choose 1-4.")
                     continue
-                
-                # Exit condition
+
                 if choice == 4:
                     print("Exiting the application.")
                     return
-                
-                # Map selection to provider name
+
                 providers = ['openai', 'ollama', 'gemini']
                 selected_provider = providers[choice - 1]
                 break
             except ValueError:
                 print("Please enter a valid number.")
-        
-        # Initialize agent with selected provider
+
         try:
             agent = Agent(selected_provider)
             print(f"\n--- Interactive Chat with {selected_provider.upper()} Provider ---")
             print("Type 'exit' to change provider.")
-            
-            # Chat loop
+
             while True:
-                # Get user input
                 user_input = input("\nYou: ")
-                
-                # Check for exit condition
+                readline.write_history_file(histfile)  # salva histórico a cada input
+
                 if user_input.lower() == 'exit':
                     print("Returning to provider selection.")
                     break
-                
-                # Check for clear condition
+
                 if user_input.lower() == 'clear':
-                    # Cross-platform screen clearing
                     os.system('cls' if os.name == 'nt' else 'clear')
                     print(f"\n--- Interactive Chat with {selected_provider.upper()} Provider ---")
                     print("Type 'exit' to change provider.")
                     continue
-                
-                # Get and print agent response
+
                 try:
                     response = agent.call(user_input)
                     print(f"Agent ({selected_provider.upper()}): {response}")
                 except Exception as chat_error:
                     print(f"Error processing your message: {chat_error}")
-        
+
         except Exception as init_error:
             print(f"Failed to initialize {selected_provider} provider: {init_error}")
 
+
 def main():
-    # Uncomment the function you want to run
+    # Uncomment if you want the simple test
     # test_simple_communication()
     interactive_chat()
 

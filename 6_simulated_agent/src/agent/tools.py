@@ -253,29 +253,6 @@ def update_product(product_id, **kwargs):
 
 @log_execution_time
 def delete_product(product_id: str = None):
-    # Se nenhum ID for fornecido, deletar todos os produtos
-    if product_id is None:
-        products = product_repo.list_all()
-        if not products:
-            return "Não há produtos para deletar."
-        
-        deleted_products = []
-        for product in products:
-            product_repo.delete(product.id)
-            deleted_products.append(product.name)
-        
-        return f"Todos os produtos foram deletados: {', '.join(deleted_products)}"
-
-    # Se for passado um nome, encontrar o ID correspondente
-    if not product_id.startswith('p'):
-        products = product_repo.list_all()
-        matching_product = next((p for p in products if p.name == product_id), None)
-        
-        if not matching_product:
-            return f"Produto '{product_id}' não encontrado para exclusão."
-        
-        product_id = matching_product.id
-
     # Verificar se o produto existe antes de deletar
     product = product_repo.find_by_id(product_id)
     if not product:
@@ -319,54 +296,35 @@ def list_inventory():
     return summary
 
 @log_execution_time
-def update_inventory(product_name: str = None, quantity: int = None, inventory: dict = None):
+def update_inventory(product_id: str = None, action: str = None, quantity: int = None):
     """
     Update inventory for a product 
     
-    :param product_name: Exact name of the product
-    :param quantity: Quantity to add to the inventory
-    :param inventory: Alternative input as a dictionary
+    :param product_id: Product ID to update
+    :param quantity: Quantity to add/remove to the inventory
     :return: Success message or error description
     """
-    # Handle dictionary input if provided
-    if inventory and isinstance(inventory, dict):
-        # Try to get product ID or name from the dictionary
-        product_id = inventory.get('product_id')
-        product_name = inventory.get('product_name')
-        quantity = inventory.get('quantity')
-        
-        # If product_id is not a valid ID (starts with 'p'), treat it as product name
-        if product_id and not str(product_id).startswith('p'):
-            product_name = product_id
-            product_id = None
-
-    # Validate input parameters
-    if not product_name and not product_id:
-        return "Por favor, forneça o nome ou ID do produto e a quantidade a ser adicionada."
-    
-    if quantity is None:
-        return "Por favor, forneça a quantidade a ser adicionada."
-
     # Find the product
     if product_id:
         product = product_repo.find_by_id(product_id)
     else:
         products = product_repo.list_all()
-        product = next((p for p in products if p.name == product_name), None)
+        product = next((p for p in products if p.name == product_id), None)
 
     if not product:
-        return f"Produto '{product_name or product_id}' não encontrado."
+        return f"Produto '{product_id}' não encontrado."
 
-    # Create Inventory object with the product's ID
-    inventory_obj = Inventory(
-        product_id=product.id, 
-        quantity=quantity
-    )
+    if action not in ['add', 'remove']:
+        return "Ação inválida. Use 'add' para adicionar ou 'remove' para remover estoque."
 
-    # Add to inventory
+    if action == 'remove':
+        quantity = abs(quantity)
+    else:
+        quantity = abs(quantity)
+
     inventory_repo.add(inventory_obj)
 
     # Log the inventory update
-    logger.info(f"Estoque do produto '{product.name}' atualizado: +{quantity} unidades")
+    logger.info(f"Estoque do produto '{product.name}' atualizado: {action} {quantity} unidades")
 
-    return f"Adicionadas {quantity} unidades ao estoque do produto '{product.name}'"
+    return f"Estoque do produto '{product.name}' atualizado: {action} {quantity} unidades"
