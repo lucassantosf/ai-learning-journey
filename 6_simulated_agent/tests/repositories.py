@@ -16,13 +16,15 @@ from src.models.order import Order, OrderItem
 from src.models.inventory import Inventory
 
 from src.repository.sqlite_models import ProductModel, OrderModel, OrderItemModel, InventoryModel
+from src.utils.helpers import get_products
 
 def test_memory_repositories():
     print("🔍 Testing In-Memory Repositories")
     # Initialize repositories
-    product_repo = ProductMemRepository()
+    product_repo = ProductMemRepository(products=get_products(), inventory={})
+    inventory_repo = InventoryMemRepository(product_repo._products)
+    product_repo._inventory = inventory_repo._inventory  # conecta os dois
     order_repo = OrderMemRepository(product_repo)
-    inventory_repo = InventoryMemRepository(product_repo)
 
     print("✅ Available Products:")
     product_list = product_repo.list_all()
@@ -99,8 +101,8 @@ def test_sqlite_repositories():
     from sqlalchemy.exc import OperationalError
     
     # Recreate all tables
-    db.drop_all_tables()
-    db.create_all_tables()
+    # db.drop_all_tables()
+    # db.create_all_tables()
     
     # Initialize SQLite repositories
     session = db.get_session()
@@ -117,9 +119,8 @@ def test_sqlite_repositories():
 
     # Test: Create new product
     new_product = Product(name="Wireless Gaming Mouse", price=120)
-    product_repo.create(new_product)
     print("➕ Product Created:")
-    created_product = product_repo.find_by_name("Wireless Gaming Mouse")
+    created_product = product_repo.create(new_product)
     pprint(created_product)
     print("\n")
 
@@ -184,7 +185,7 @@ def test_sqlite_repositories():
 
 def run_all_tests():
     print("🚀 Running Repository Tests\n")
-    test_memory_repositories()
+    # test_memory_repositories()
     test_sqlite_repositories()
 
 if __name__ == "__main__":

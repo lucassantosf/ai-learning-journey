@@ -23,16 +23,24 @@ class SQLiteProductRepository(ProductRepository):
             .all()
         )
 
-        return [
-            Product(
+        products = []
+
+        for model in product_models:
+            # cria o Product normal
+            product = Product(
                 id=model.id,
                 name=model.name,
                 price=model.price,
                 average_rating=model.average_rating,
                 image_url=model.image_url,
-                quantity=(model.inventory[0].quantity if model.inventory else 0)
-            ) for model in product_models
-        ]
+            )
+
+            # adiciona quantity dinamicamente
+            product.quantity = model.inventory.quantity if model.inventory else 0
+
+            products.append(product)
+
+        return products
 
     def find_by_id(self, product_id: str) -> Optional[Product]:
         """
@@ -52,14 +60,19 @@ class SQLiteProductRepository(ProductRepository):
             if not model:
                 return None
             
-            return Product(
+            product = Product(
                 id=model.id,
                 name=model.name,
                 price=model.price,
-                quantity=(model.inventory[0].quantity if model.inventory else 0),
                 average_rating=model.average_rating,
                 image_url=model.image_url
             )
+        
+            # adiciona quantity dinamicamente
+            product.quantity = model.inventory.quantity if model.inventory else 0
+
+            return product
+
         except NoResultFound:
             return None
 
@@ -97,24 +110,26 @@ class SQLiteProductRepository(ProductRepository):
         
         :param product: Product object to create
         """
-        # Generate a unique ID if not provided
-        if not product.id:
-            # Use a more predictable ID format
-            product.id = f"p{self.session.query(ProductModel).count() + 1:03d}"
-
         product_model = ProductModel(
             id=product.id,
             name=product.name,
             price=product.price,
-            quantity=product.quantity or 0,
             average_rating=product.average_rating or 0.0,
             image_url=product.image_url
         )
         
         self.session.add(product_model)
         self.session.commit()
+        self.session.refresh(product_model)  # ⚡ garante que os dados do banco estão atualizados
 
-        return product
+        # Constrói e retorna um Product limpo com os dados do banco
+        return Product(
+            id=product_model.id,
+            name=product_model.name,
+            price=product_model.price,
+            average_rating=0,
+            image_url=product_model.image_url,
+        )
 
     def update(self, product: Product) -> None:
         """
@@ -127,7 +142,6 @@ class SQLiteProductRepository(ProductRepository):
             
             product_model.name = product.name
             product_model.price = product.price
-            product_model.quantity = product.quantity
             product_model.average_rating = product.average_rating
             product_model.image_url = product.image_url
             

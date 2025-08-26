@@ -4,7 +4,8 @@ from src.repository.sqlite_product_repo import SQLiteProductRepository
 from src.repository.sqlite_inventory_repo import SQLiteInventoryRepository
 from src.models.inventory import Inventory
 from src.utils.helpers import get_products
- 
+import random
+
 def seed_sqlite_products():
     """
     Seed SQLite database with initial products from get_products()
@@ -34,7 +35,7 @@ def seed_sqlite_products():
         # Add inventory for the product
         inventory = Inventory(
             product_id=product_id,
-            quantity=product.quantity
+            quantity=random.randint(5, 20),  # Random initial stock between 5 and 20
         )
         inventory_repo.add(inventory)
 

@@ -1,15 +1,11 @@
 from typing import Dict, List
 from src.repository.interfaces.inventory_repository import InventoryRepository
 from src.models.inventory import Inventory
-from src.repository.product_mem_repo import ProductMemRepository
 
 class InventoryMemRepository(InventoryRepository):
-    def __init__(self, product_repo: ProductMemRepository):
-        self._products = product_repo._products
-        self._inventory: Dict[str, int] = {
-            product_id: product.quantity 
-            for product_id, product in self._products.items()
-        }
+    def __init__(self, products: dict):
+        self._products = products
+        self._inventory: Dict[str, int] = {pid: 0 for pid in products.keys()}
 
     def add(self, inventory: Inventory) -> None:
         from src.models.product import Product
@@ -18,8 +14,7 @@ class InventoryMemRepository(InventoryRepository):
             temp_product = Product(
                 id=inventory.product_id, 
                 name=f"Temporary Product ({inventory.product_id})", 
-                price=0, 
-                quantity=0
+                price=0
             )
             self._products[inventory.product_id] = temp_product
 

@@ -7,4 +7,5 @@ class Product:
     price: float
     average_rating: float = 0.0
     image_url: str = None
+    quantity: int = 0
     id: str = field(default_factory=lambda: str(uuid.uuid4()))

@@ -17,7 +17,7 @@ PRODUCT MANAGEMENT TOOLS:
 
 - get_product(product_name=None, product_id=None): Retrieve details of a product  
   **Response Format:** "Detalhes do Produto: ID, Nome, Preço, Quantidade, Avaliação"
-  IMPORTANT: describe each field clearly and its value.
+  IMPORTANT: describe each field clearly and its value. Do NOT request a product ID from the user.
 
 - add_product(name,price): Add a new product  
   **Response Format:** "Produto '[name]' adicionado com sucesso"  

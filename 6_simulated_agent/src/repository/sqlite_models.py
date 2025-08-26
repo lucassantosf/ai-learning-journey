@@ -12,6 +12,13 @@ class ProductModel(Base):
     image_url = Column(String)
     created_at = Column(DateTime, default=datetime.now)
 
+    # relacionamento 1:1 ou 1:N com inventory
+    inventory = relationship(
+        "InventoryModel",
+        back_populates="product",
+        uselist=False  # True = lista (1:N), False = único (1:1)
+    )
+
 class OrderModel(Base):
     __tablename__ = 'orders'
 
@@ -45,4 +52,4 @@ class InventoryModel(Base):
     last_updated = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Relationship to ProductModel
-    product = relationship('ProductModel')
+    product = relationship('ProductModel', back_populates="inventory")
