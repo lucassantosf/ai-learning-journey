@@ -16,7 +16,7 @@ from src.agent.memory import Memory
 from src.utils.logger import setup_logger, log_execution_time
 
 class APICallTracker:
-    def __init__(self, max_calls=15, reset_time=900, max_conversation_calls=10):
+    def __init__(self, max_calls=50, reset_time=900, max_conversation_calls=10):
         self.calls = 0
         self.last_reset = time.time()
         self.max_calls = max_calls
@@ -228,8 +228,10 @@ class Agent:
         return None
     
     def _send_to_model(self, messages, timeout=30):
-        if not self.api_call_tracker.can_make_call():
-            raise TimeoutException("⚠️ Limite de chamadas de API excedido.")
+
+        # if not self.api_call_tracker.can_make_call():
+        #     raise TimeoutException("⚠️ Limite de chamadas de API excedido.")
+        
         truncated_messages = []
         for msg in messages:
             content = msg['content']
@@ -333,7 +335,7 @@ class Agent:
 
             # Contabiliza repetição de ações
             action_counts[action_name] = action_counts.get(action_name, 0) + 1
-            if action_counts[action_name] > 2:
+            if action_counts[action_name] > 20:
                 self.logger.warning(f"Ação '{action_name}' repetida muitas vezes. Encerrando loop.")
                 break
 

@@ -1,12 +1,14 @@
 
 import tiktoken
+from src.utils.logger import setup_logger
 
 class Memory:
-    def __init__(self, max_messages=10, max_tokens=4000):
+    def __init__(self, max_messages=50, max_tokens=10000):
         self.history = []
         self.max_messages = max_messages
         self.max_tokens = max_tokens
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
+        self.logger = setup_logger()  # Adicionando o logger aqui
 
     def add_message(self, role: str, content: str, name: str = None):
         message = {"role": role, "content": content}
@@ -22,13 +24,18 @@ class Memory:
         self.history = []
 
     def _truncate(self):
-        # First, remove messages beyond max_messages
+        # Primeiro, remove mensagens que excedem o limite de mensagens
         if len(self.history) > self.max_messages:
+            self.logger.warning(f"⚠️ Memória: Limite de mensagens excedido ({len(self.history)} > {self.max_messages}). Removendo as mensagens mais antigas.")
             self.history = self.history[-self.max_messages:]
 
-        # Then, reduce tokens if needed
+        # Depois, reduz os tokens, se necessário
+        current_tokens = self._get_total_tokens()
+        if current_tokens > self.max_tokens:
+            self.logger.warning(f"⚠️ Memória: Limite de tokens excedido ({current_tokens} > {self.max_tokens}). Removendo mensagens até o limite ser alcançado.")
+        
         while self._get_total_tokens() > self.max_tokens:
-            # Remove the oldest non-system message
+            # Remove a mensagem mais antiga que não seja do tipo 'system'
             for i, msg in enumerate(self.history):
                 if msg['role'] != 'system':
                     del self.history[i]

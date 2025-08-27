@@ -296,7 +296,7 @@ def list_inventory():
     return summary
 
 @log_execution_time
-def update_inventory(product_id: str = None, action: str = None, quantity: int = None):
+def update_inventory(product_id: str = None, method: str = None, quantity = None):
     """
     Update inventory for a product 
     
@@ -314,17 +314,27 @@ def update_inventory(product_id: str = None, action: str = None, quantity: int =
     if not product:
         return f"Produto '{product_id}' não encontrado."
 
-    if action not in ['add', 'remove']:
+    if method not in ['add', 'remove']:
         return "Ação inválida. Use 'add' para adicionar ou 'remove' para remover estoque."
+    
+    # 1. Validação do parâmetro 'quantity'
+    if quantity is None:
+        return "A quantidade não pode ser vazia. Por favor, forneça um número."
 
-    if action == 'remove':
-        quantity = abs(quantity)
+    # 2. Tentativa de conversão para inteiro e tratamento de erro
+    try:
+        # Tenta converter o valor (que pode ser string ou int) para um inteiro
+        quantity = int(quantity)
+    except (ValueError, TypeError):
+        # Captura erros se a conversão falhar (ex: 'dez', '10.5', etc.)
+        return "Quantidade inválida. Por favor, forneça um número inteiro para a quantidade."
+        
+    if method == 'remove':
+        inventory_repo.remove(product_id=product.id, quantity=quantity)
     else:
-        quantity = abs(quantity)
-
-    inventory_repo.add(inventory_obj)
-
+        inventory_repo.add(Inventory(product_id=product.id, quantity=quantity))
+   
     # Log the inventory update
-    logger.info(f"Estoque do produto '{product.name}' atualizado: {action} {quantity} unidades")
+    logger.info(f"Estoque do produto '{product.name}' atualizado: {method} {quantity} unidades")
 
-    return f"Estoque do produto '{product.name}' atualizado: {action} {quantity} unidades"
+    return f"Estoque do produto '{product.name}' atualizado: {method} {quantity} unidades"

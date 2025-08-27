@@ -38,12 +38,12 @@ INVENTORY MANAGEMENT TOOLS:
   **Response Format (dict):**  
   • total_products: number of unique products  
   • total_items: total quantity across all items  
-  • inventory_list: list with product name, ID, and stock quantity  
-  • formatted_summary: human-readable summary  
+  • inventory_list: list with product name, ID, and stock quantity
 
-- update_inventory(product_name=None, quantity=None, inventory=None): Update product stock  
-  **Response Format:** "Adicionadas [quantity] unidades ao estoque do produto '[name]'"  
-  Always confirm the exact quantity added and the updated total stock.
+- update_inventory(product_id, method, quantity: int): Update product stock  
+  **Response Format:** "Adicionadas/Removidas [quantity] unidades ao estoque do produto '[name]'"  
+  You can send only method "add" or "remove". You must guess user's intent to apply the correct method.
+  IMPORTANT: Do NOT request a product ID from the user. Use the tool get_product with the name to find the ID if you don't have it already from the history.
 
 ---
 
