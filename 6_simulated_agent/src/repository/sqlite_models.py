@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from src.repository.sqlite_base import Base
 from datetime import datetime
+import uuid
 
 class ProductModel(Base):
     __tablename__ = 'products'
@@ -16,14 +17,15 @@ class ProductModel(Base):
     inventory = relationship(
         "InventoryModel",
         back_populates="product",
-        uselist=False  # True = lista (1:N), False = único (1:1)
+        uselist=False,  # True = lista (1:N), False = único (1:1)
+        cascade="all, delete-orphan"
     )
 
 class OrderModel(Base):
     __tablename__ = 'orders'
 
-    id = Column(String, primary_key=True)
-    user_id = Column(String, nullable=False)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    customer_document = Column(String, nullable=False)
     customer_name = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.now)
     rating = Column(Float)
@@ -47,7 +49,7 @@ class InventoryModel(Base):
     __tablename__ = 'inventory'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    product_id = Column(String, ForeignKey('products.id'), unique=True)
+    product_id = Column(String, ForeignKey('products.id', ondelete="CASCADE"), unique=True)
     quantity = Column(Integer, default=0)
     last_updated = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 

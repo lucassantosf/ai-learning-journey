@@ -1,25 +1,23 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import List
-from src.models.orderItem import OrderItem
+from typing import List, Optional
+
 
 @dataclass
 class OrderItem:
     product_id: str
     quantity: int
+    id: Optional[int] = None  # será preenchido pelo banco
 
 @dataclass
 class Order:
-    id: str
-    user_id: str
+    customer_document: str
     customer_name: str
     items: List[OrderItem]
-    created_at: datetime
-    rating: float = None
+    created_at: datetime = None
+    id: Optional[int] = None  # será preenchido pelo banco
+    rating: Optional[float] = None
 
     def __post_init__(self):
-        """
-        Validate that user identification is provided
-        """
-        if not self.user_id or not self.customer_name:
-            raise ValueError("User identification is required: user_id and customer_name must be provided")
+        if not self.customer_document or not self.customer_name:
+            raise ValueError("User identification is required: customer_document and customer_name must be provided")

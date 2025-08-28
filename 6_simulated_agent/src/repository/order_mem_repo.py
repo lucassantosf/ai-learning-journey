@@ -15,7 +15,22 @@ class OrderMemRepository(OrderRepository):
         return self._orders.get(order_id)
 
     def create(self, order: Order) -> None:
+        # percorre os itens do pedido
+        for item in order.items:
+            product = self._product_repo.find_by_id(item.product_id)
+            if not product:
+                raise ValueError(f"Product {item.product_id} not found")
+
+            if product.inventory.quantity < item.quantity:
+                raise ValueError(f"Insufficient inventory for product {item.product_id}")
+
+            # debita o estoque
+            product.inventory.quantity -= item.quantity
+            self._product_repo.update(product)
+
+        # salva o pedido em memória
         self._orders[order.id] = order
+        return order
 
     def rate(self, order_id: str, rating: float) -> None:
         if order_id in self._orders:

@@ -21,8 +21,9 @@ from src.utils.helpers import get_products
 def test_memory_repositories():
     print("🔍 Testing In-Memory Repositories")
     # Initialize repositories
-    product_repo = ProductMemRepository(products=get_products(), inventory={})
-    inventory_repo = InventoryMemRepository(product_repo._products)
+    products=get_products()
+    inventory_repo = InventoryMemRepository(products)
+    product_repo = ProductMemRepository(products=products, inventory=inventory_repo)
     product_repo._inventory = inventory_repo._inventory  # conecta os dois
     order_repo = OrderMemRepository(product_repo)
 
@@ -58,41 +59,39 @@ def test_memory_repositories():
     pprint(inventory_repo.list_all())
     print("\n")
 
-    # Test: Delete product
-    product_repo.delete(product.id)
-    print(f"❌ Product Deleted ({product.id}):")
-    pprint(product_repo.list_all())
-    print("\n")
-
     # Test: Create order
-    items = [OrderItem(product_id=product_list[0].id, quantity=1), OrderItem(product_id=product_list[1].id, quantity=2)]
+    items = [OrderItem(product_id=product.id, quantity=1), OrderItem(product_id=product_list[1].id, quantity=2)]
     new_order = Order(
-        id="order_001", 
-        user_id="test_user", 
+        customer_document="test_user", 
         customer_name="Test Customer", 
-        items=items, 
-        created_at=datetime.now()
+        items=items
     )
     order_repo.create(new_order)
     print("📦 Order Created:")
-    pprint(order_repo.find_by_id("order_001"))
+    pprint(order_repo.find_by_id(new_order.id))
     print("\n")
 
     # Test: Rate order
-    print(f"Product before rated ({product_list[0].id}):")
-    pprint(product_repo.find_by_id(product_list[0].id))
+    print(f"Product before rated ({product.id}):")
+    pprint(product_repo.find_by_id(product.id))
 
-    order_repo.rate("order_001", 1.0)
+    order_repo.rate(new_order.id, 1.0)
     print("🌟 Order Rated:")
-    pprint(order_repo.find_by_id("order_001"))
+    pprint(order_repo.find_by_id(new_order.id))
     print("\n")
 
-    print(f"Product after rated ({product_list[0].id}):")
-    pprint(product_repo.find_by_id(product_list[0].id))
+    print(f"Product after rated ({product.id}):")
+    pprint(product_repo.find_by_id(product.id))
 
     # Test: List all orders
     print("📋 List of All Orders:")
     pprint(order_repo.list_all())
+    print("\n")
+
+    # Test: Delete product
+    product_repo.delete(product.id)
+    print(f"❌ Product Deleted ({product.id}):")
+    pprint(product_repo.list_all())
     print("\n")
 
 def test_sqlite_repositories():
@@ -114,7 +113,8 @@ def test_sqlite_repositories():
 
     print("✅ Initial Product List:")
     product_list = product_repo.list_all()
-    pprint(product_list)
+    order_product_id= product_list[0].id
+    # pprint(product_list)
     print("\n")
 
     # Test: Create new product
@@ -134,43 +134,41 @@ def test_sqlite_repositories():
     print("\n")
 
     # Test: Add inventory
-    inventory_repo.add(Inventory(product_id=created_product.id, quantity=10))
+    inventory_repo.add(Inventory(product_id=order_product_id, quantity=10))
     print("➕ Inventory after adding 10 units:")
     pprint(inventory_repo.list_all())
     print("\n")
 
     # Test: Remove inventory
-    inventory_repo.remove(product_id=created_product.id, quantity=3)
+    inventory_repo.remove(product_id=order_product_id, quantity=3)
     print("➖ Inventory after removing 3 units:")
     pprint(inventory_repo.list_all())
     print("\n")
 
     # Test: Create order
-    items = [OrderItem(product_id=created_product.id, quantity=2)]
+    items = [OrderItem(product_id=order_product_id, quantity=2)]
     new_order = Order(
-        id="sqlite_order_001", 
-        user_id="sqlite_test_user", 
+        customer_document="sqlite_test_user", 
         customer_name="SQLite Test Customer", 
         items=items, 
-        created_at=datetime.now()
     )
-    order_repo.create(new_order)
+    saved_order =order_repo.create(new_order)
     print("📦 Order Created:")
-    pprint(order_repo.find_by_id("sqlite_order_001"))
+    pprint(saved_order)
     print("\n")
 
     # Test: Rate order
-    print(f"Product before rated ({created_product.id}):")
-    pprint(product_repo.find_by_id(created_product.id))
+    print(f"Product before rated ({order_product_id}):")
+    pprint(product_repo.find_by_id(order_product_id))
 
-    order_repo.rate("sqlite_order_001", 1.1)
+    order_repo.rate(saved_order.id, 1.1)
     print("🌟 Order Rated:")
-    rated_order = order_repo.find_by_id("sqlite_order_001")
+    rated_order = order_repo.find_by_id(saved_order.id)
     pprint(rated_order)
     print("\n")
 
-    print(f"Product after rated ({created_product.id}):")
-    pprint(product_repo.find_by_id(created_product.id))
+    print(f"Product after rated ({order_product_id}):")
+    pprint(product_repo.find_by_id(order_product_id))
 
     # Test: List all orders
     print("📋 List of All Orders:")
@@ -180,13 +178,13 @@ def test_sqlite_repositories():
     # Test: Delete product
     product_repo.delete(created_product.id)
     print("❌ Product Deleted:")
-    pprint(product_repo.list_all())
+    # pprint(product_repo.list_all())
     print("\n")
 
 def run_all_tests():
     print("🚀 Running Repository Tests\n")
-    # test_memory_repositories()
-    test_sqlite_repositories()
+    test_memory_repositories()
+    # test_sqlite_repositories()
 
 if __name__ == "__main__":
     run_all_tests()

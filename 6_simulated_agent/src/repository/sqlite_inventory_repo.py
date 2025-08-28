@@ -3,7 +3,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from src.repository.interfaces.inventory_repository import InventoryRepository
 from src.models.inventory import Inventory
 from src.repository.sqlite_base import db
-from src.repository.sqlite_models import InventoryModel, ProductModel
+from src.repository.sqlite_models import InventoryModel
 
 class SQLiteInventoryRepository(InventoryRepository):
     def __init__(self):

@@ -3,8 +3,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from src.repository.interfaces.order_repository import OrderRepository
 from src.models.order import Order, OrderItem
 from src.repository.sqlite_base import db
-from src.repository.sqlite_models import OrderModel, OrderItemModel, ProductModel
-from datetime import datetime
+from src.repository.sqlite_models import OrderModel, OrderItemModel, ProductModel, InventoryModel
 
 class SQLiteOrderRepository(OrderRepository):
     def __init__(self):
@@ -20,7 +19,7 @@ class SQLiteOrderRepository(OrderRepository):
         return [
             Order(
                 id=model.id,
-                user_id=model.user_id,
+                customer_document=model.customer_document,
                 customer_name=model.customer_name,
                 created_at=model.created_at,
                 rating=model.rating,
@@ -44,7 +43,7 @@ class SQLiteOrderRepository(OrderRepository):
             model = self.session.query(OrderModel).filter_by(id=order_id).one()
             return Order(
                 id=model.id,
-                user_id=model.user_id,
+                customer_document=model.customer_document,
                 customer_name=model.customer_name,
                 created_at=model.created_at,
                 rating=model.rating,
@@ -64,38 +63,43 @@ class SQLiteOrderRepository(OrderRepository):
         
         :param order: Order object to create
         """
-        # Generate a unique ID if not provided
-        if not order.id:
-            order.id = f"order_{self.session.query(OrderModel).count() + 1:03d}"
-
-        # Calculate total price
-        total_price = 0
-        
         # Create order model
         order_model = OrderModel(
-            id=order.id,
-            user_id=order.user_id,
+            customer_document=order.customer_document,
             customer_name=order.customer_name,
-            created_at=order.created_at or datetime.now(),
-            rating=order.rating
         )
-        
         self.session.add(order_model)
+        self.session.flush()  # força preencher o order_model.id antes do commit
 
         # Create order items
         for item in order.items:
-            # Find product to get its price
-            product = self.session.query(ProductModel).filter_by(id=item.product_id).one()
+
+            # validate inventory
+            inventory_model = self.session.query(InventoryModel).filter_by(product_id=item.product_id).one()
             
+            if inventory_model.quantity < item.quantity:
+                raise ValueError(f"Insufficient inventory for product {item.product_id}")
+            
+            # criar referencia do item
             order_item_model = OrderItemModel(
-                order_id=order.id,
+                order_id=order_model.id,
                 product_id=item.product_id,
                 quantity=item.quantity
             )
-            
             self.session.add(order_item_model)
 
+            # Atualiza o inventário
+            inventory_model.quantity -= item.quantity
+            self.session.commit()
+
         self.session.commit()
+
+        # Atualiza o dataclass com o id real do banco
+        order.id = order_model.id
+        for i, item in enumerate(order.items):
+            order.items[i].id = item.id  # idem pros items, se precisar
+        
+        return order
 
     def rate(self, order_id: str, rating: int) -> None:
         """

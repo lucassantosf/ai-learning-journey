@@ -33,7 +33,6 @@ def generate_order(items):
       - Um único dict
       - String representando dict/list (vinda do modelo)
     """
-
     # Se vier string, tenta converter
     if isinstance(items, str):
         try:
@@ -49,12 +48,10 @@ def generate_order(items):
         raise ValueError("❌ items deve ser lista de dicionários")
 
     order = {
-        "order_id": str(uuid.uuid4()),
         "customer_name": None,
-        "user_id": None,
+        "customer_document": None,
         "items": [],
         "total": 0.0,
-        "created_at": datetime.now().isoformat()
     }
 
     for item in items:
@@ -64,7 +61,7 @@ def generate_order(items):
         product_name = item.get("product_name")
         quantity = item.get("quantity", 1)
         customer_name = item.get("customer_name")
-        user_id = item.get("user_id")
+        customer_document = item.get("customer_document")
 
         # Busca produto
         product = get_product(product_name)
@@ -73,7 +70,7 @@ def generate_order(items):
 
         # Atualiza dados do pedido
         order["customer_name"] = customer_name
-        order["user_id"] = user_id
+        order["customer_document"] = customer_document
         order["items"].append({
             "product_name": product.name,
             "quantity": quantity,

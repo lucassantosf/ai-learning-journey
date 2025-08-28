@@ -7,6 +7,9 @@ class InventoryMemRepository(InventoryRepository):
         self._products = products
         self._inventory: Dict[str, int] = {pid: 0 for pid in products.keys()}
 
+    def get_quantity(self, product_id: str) -> int:
+        return self._inventory.get(product_id, 0)
+    
     def add(self, inventory: Inventory) -> None:
         from src.models.product import Product
         
