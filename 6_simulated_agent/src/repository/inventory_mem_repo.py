@@ -21,14 +21,15 @@ class InventoryMemRepository(InventoryRepository):
             )
             self._products[inventory.product_id] = temp_product
 
-        # Add to inventory
-        if inventory.product_id not in self._inventory:
-            self._inventory[inventory.product_id] = 0
-        self._inventory[inventory.product_id] += inventory.quantity
+        self._inventory[inventory.product_id] = self._inventory.get(inventory.product_id, 0) + inventory.quantity
 
     def remove(self, product_id: str, quantity: int) -> None:
-        if product_id in self._inventory:
-            self._inventory[product_id] = max(0, self._inventory[product_id] - quantity)
+        current = self._inventory.get(product_id, 0)
+        if quantity < 0:
+            raise ValueError("Quantity to remove must be >= 0")
+        if current < quantity:
+            raise ValueError(f"Insufficient inventory for product {product_id}: have {current}, need {quantity}")
+        self._inventory[product_id] = current - quantity
 
     def list_all(self) -> List[Inventory]:
         return [

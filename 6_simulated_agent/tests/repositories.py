@@ -24,7 +24,6 @@ def test_memory_repositories():
     products=get_products()
     inventory_repo = InventoryMemRepository(products)
     product_repo = ProductMemRepository(products=products, inventory=inventory_repo)
-    product_repo._inventory = inventory_repo._inventory  # conecta os dois
     order_repo = OrderMemRepository(product_repo)
 
     print("✅ Available Products:")
@@ -48,19 +47,20 @@ def test_memory_repositories():
     print("\n")
 
     # Test: Add inventory
-    inventory_repo.add(Inventory(product_id=product.id, quantity=5))
+    inventory_repo.add(Inventory(product_id=product.id, quantity=10))
+    inventory_repo.add(Inventory(product_id=product_list[1].id, quantity=10))
     print("➕ Inventory after adding 5 units:")
     pprint(inventory_repo.list_all())
     print("\n")
 
     # Test: Remove inventory
-    inventory_repo.remove(product_id=product.id, quantity=3)
-    print("➖ Inventory after removing 3 units:")
+    inventory_repo.remove(product_id=product.id, quantity=1)
+    print("➖ Inventory after removing 1 units:")
     pprint(inventory_repo.list_all())
     print("\n")
 
     # Test: Create order
-    items = [OrderItem(product_id=product.id, quantity=1), OrderItem(product_id=product_list[1].id, quantity=2)]
+    items = [OrderItem(product_id=product.id, quantity=1), OrderItem(product_id=product_list[1].id, quantity=1)]
     new_order = Order(
         customer_document="test_user", 
         customer_name="Test Customer", 
@@ -89,8 +89,8 @@ def test_memory_repositories():
     print("\n")
 
     # Test: Delete product
-    product_repo.delete(product.id)
-    print(f"❌ Product Deleted ({product.id}):")
+    product_repo.delete(product_list[2].id)
+    print(f"❌ Product Deleted ({product_list[2].id}):")
     pprint(product_repo.list_all())
     print("\n")
 

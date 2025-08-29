@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 from src.repository.interfaces.order_repository import OrderRepository
 from src.repository.product_mem_repo import ProductMemRepository
 from src.models.order import Order
@@ -11,24 +11,17 @@ class OrderMemRepository(OrderRepository):
     def list_all(self) -> List[Order]:
         return list(self._orders.values())
 
-    def find_by_id(self, order_id: str) -> Order:
+    def find_by_id(self, order_id: str) -> Optional[Order]:
         return self._orders.get(order_id)
 
-    def create(self, order: Order) -> None:
-        # percorre os itens do pedido
+    def create(self, order: Order) -> Order:
+        # validação de estoque e débito efetivo no InventoryRepo
         for item in order.items:
-            product = self._product_repo.find_by_id(item.product_id)
-            if not product:
-                raise ValueError(f"Product {item.product_id} not found")
+            available = self._product_repo.get_quantity(item.product_id)
+            if available < item.quantity:
+                raise ValueError(f"Insufficient inventory for product {item.product_id}: have {available}, need {item.quantity}")
+            self._product_repo.remove_inventory(item.product_id, item.quantity)
 
-            if product.inventory.quantity < item.quantity:
-                raise ValueError(f"Insufficient inventory for product {item.product_id}")
-
-            # debita o estoque
-            product.inventory.quantity -= item.quantity
-            self._product_repo.update(product)
-
-        # salva o pedido em memória
         self._orders[order.id] = order
         return order
 
@@ -37,14 +30,13 @@ class OrderMemRepository(OrderRepository):
             order = self._orders[order_id]
             order.rating = rating
 
-            # Atualiza a média dos produtos do pedido
             for item in order.items:
-                product = self._product_repo.find_by_id(item.product_id)
+                product = self._product_repo.find_by_id(item.product_id)  # cópia com quantity atualizado
                 if product:
-                    # Exemplo simples: média ponderada incremental
+                    # média simples incremental (exemplo)
                     if product.average_rating is None:
                         product.average_rating = rating
                     else:
                         product.average_rating = (product.average_rating + rating) / 2
-                    
+                    # persistir de volta no storage real do produto (sem quantity)
                     self._product_repo.update(product)
