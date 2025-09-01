@@ -102,7 +102,6 @@ class Agent:
         self.provider = 'gemini'
         self.logger.info("Gemini client initialized")
 
-
     def _extract_action(self, response: str) -> tuple[str, dict] | None:
         """
         Extrai ACTIONs do texto, convertendo os argumentos para dicts.
@@ -259,7 +258,7 @@ class Agent:
                 else:
                     future = executor.submit(_call_gemini)
                 content = future.result(timeout=timeout)
-            self.logger.debug(f"Model response: {content[:200] + '...' if len(content) > 200 else content}")
+            self.logger.debug(f"Model response: {content[:400] + '...' if len(content) > 400 else content}")
             return content
         except concurrent.futures.TimeoutError:
             raise TimeoutException(f"⚠️ Chamada para {self.provider} excedeu o limite de {timeout}s.")
@@ -344,14 +343,6 @@ class Agent:
                 continue
 
             try:
-                # Normaliza items do generate_order
-                if action_name == "generate_order" and "items" in action_args:
-                    action_args["items"] = self.normalize_items(action_args["items"])
-                    # Garante que só passe 'items'
-                    action_args = {"items": action_args["items"]}
-                    
-                    self.logger.debug(f"Items normalizados: {action_args['items']}")
-
                 tool_result = None
                 if action_name in self.TOOLS:
                     tool_result = self._run_tool(action_name, args=action_args)

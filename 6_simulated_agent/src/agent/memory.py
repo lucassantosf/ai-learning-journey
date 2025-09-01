@@ -3,7 +3,7 @@ import tiktoken
 from src.utils.logger import setup_logger
 
 class Memory:
-    def __init__(self, max_messages=50, max_tokens=10000):
+    def __init__(self, max_messages=50, max_tokens=100000):
         self.history = []
         self.max_messages = max_messages
         self.max_tokens = max_tokens

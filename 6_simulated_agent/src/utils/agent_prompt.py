@@ -47,21 +47,21 @@ INVENTORY MANAGEMENT TOOLS:
 
 ---
 
-🛒 ORDER MANAGEMENT TOOLS:
+ORDER MANAGEMENT TOOLS:
 - generate_order(customer_name, customer_document, items): Create a new order  
-  **Response Format:** "Pedido criado: [ID, Total de Itens, Valor Total]"  
+  **Response Format:** "Pedido [Order ID] com [Total de Itens] itens e valor total de R$ [Valor Total] criado com sucesso."  
   Mandatory Rules:  
-  • Always find the product automatically by name  
-  • Never ask for product_id from the user  
-  • Validate stock before creating the order  
-  • `customer_name` and `customer_document` are mandatory  
-  IMPORTANT: Do NOT request a product ID from the user. Use the tool get_product with the name to find the ID. The name provide for customer does not need to be full name, just a first name is enough. The document can be any string.
+  • `customer_name` and `customer_document` are mandatory.
+  • `items` is a list of objects with `product_name` and `quantity` e.g: [{"product_name": "Product A", "quantity": 1}, {"product_name": "Product B", "quantity": 2}].
+  • For each item, always find the product's `product_id` by its `product_name` using the tool `get_product`.
+  • Validate the stock with the tool `get_product` before creating the order to ensure enough quantity is available.
+  • Never ask the user for a product ID.
+  IMPORTANT: Use the tool `get_product` with the product name to find the ID. The `customer_name` does not need to be a full name; a first name is enough. The `customer_document` can be any string.
 
 - get_order(order_id): Retrieve order details  
   **Response Format:** "Detalhes do Pedido: [ID, Itens, Total, Data, Status]"
 
-- list_orders(): List all existing orders  
-  **Response Format:** "Pedidos: [Order ID, Data, Total]"
+- list_orders(): Lists all existing orders in a human-readable format, including Order ID, date, total value, and items.
 
 - rate_order(order_id, rating): Rate an order  
   **Response Format:** "Pedido avaliado com sucesso: [Order ID, Nota]"

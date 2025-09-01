@@ -5,6 +5,7 @@ from datetime import datetime
 from datetime import datetime
 from src.models.product import Product
 from src.models.inventory import Inventory
+from src.models.order import Order, OrderItem
 from src.utils.logger import setup_logger, log_execution_time
 
 # Inicializa logger
@@ -25,61 +26,40 @@ order_repo = SQLiteOrderRepository()
 inventory_repo = SQLiteInventoryRepository()
 
 @log_execution_time
-def generate_order(items):
+def generate_order(customer_name, customer_document, items):
     """
     Gera um pedido com base nos itens passados.
-    Aceita:
-      - Lista de dicts
-      - Um único dict
-      - String representando dict/list (vinda do modelo)
-    """
-    # Se vier string, tenta converter
-    if isinstance(items, str):
-        try:
-            items = ast.literal_eval(items)  # converte string para objeto Python
-        except Exception:
-            raise ValueError(f"❌ items inválido (não pôde ser convertido): {items}")
-
-    # Se for dict único, transforma em lista
-    if isinstance(items, dict):
-        items = [items]
-
-    if not isinstance(items, list):
-        raise ValueError("❌ items deve ser lista de dicionários")
-
-    order = {
-        "customer_name": None,
-        "customer_document": None,
-        "items": [],
-        "total": 0.0,
-    }
+    Args:
+        customer_name (str): O nome do cliente.
+        customer_document (str): O documento do cliente.
+        items (list): Lista de dicionários, onde cada dicionário tem 'product_name' e 'quantity'.
+    """  
+    items_list = []
+    total = 0
 
     for item in items:
-        if not isinstance(item, dict):
-            raise ValueError(f"❌ Item inválido: {item}. Esperado dict.")
-
-        product_name = item.get("product_name")
-        quantity = item.get("quantity", 1)
-        customer_name = item.get("customer_name")
-        customer_document = item.get("customer_document")
-
-        # Busca produto
-        product = get_product(product_name)
+        # Busca o produto pelo nome e valida o estoque
+        product = get_product(product_name=item.get("product_name"))
+        
         if not product:
-            raise ValueError(f"❌ Produto '{product_name}' não encontrado.")
+            raise ValueError(f"❌ Produto '{item.get('product_name')}' não encontrado.")
+            
+        quantity_requested = item.get("quantity")
+        
+        if product.quantity < quantity_requested:
+            raise ValueError(f"❌ Estoque insuficiente para o produto '{product.name}'. Disponível: {product.quantity}, Solicitado: {quantity_requested}.")
 
-        # Atualiza dados do pedido
-        order["customer_name"] = customer_name
-        order["customer_document"] = customer_document
-        order["items"].append({
-            "product_name": product.name,
-            "quantity": quantity,
-            "unit_price": product.price,
-            "subtotal": product.price * quantity
-        })
-        order["total"] += product.price * quantity
+        items_list.append(OrderItem(product_id=product.id, quantity=quantity_requested))
+        total += product.price * quantity_requested
 
-    return order
+    new_order = Order(
+        customer_document=customer_document, 
+        customer_name=customer_name, 
+        items=items_list
+    )
+    
+    order_repo.create(new_order)
+    return new_order
 
 @log_execution_time
 def get_order(order_id):
@@ -87,7 +67,37 @@ def get_order(order_id):
 
 @log_execution_time
 def list_orders():
-    return order_repo.list_all()
+    """
+    Lista todos os pedidos existentes e formata a saída para o usuário.
+    """
+    orders = order_repo.list_all()
+    
+    if not orders:
+        return "Não há pedidos no histórico."
+        
+    formatted_orders = []
+    
+    # Itera sobre cada pedido retornado pelo repositório
+    for order in orders:
+        # Calcula o valor total do pedido
+        total_value = sum(item.quantity * product_repo.find_by_id(item.product_id).price 
+                          for item in order.items)
+        
+        # Formata a data para um formato mais legível
+        date_formatted = order.created_at.strftime("%d/%m/%Y %H:%M:%S")
+        
+        # Cria a string formatada para o pedido
+        formatted_order = (
+            f"Pedido ID: {order.id}\n"
+            f"   Data: {date_formatted}\n"
+            f"   Valor Total: R${total_value:.2f}\n"
+            f"   Itens: {[f'{product_repo.find_by_id(item.product_id).name} ({item.quantity})' for item in order.items]}"
+        )
+        formatted_orders.append(formatted_order)
+    
+    # Junta todas as strings de pedidos em uma única mensagem
+    return "Aqui está o seu histórico de pedidos:\n\n" + "\n\n".join(formatted_orders)
+
 
 @log_execution_time
 def rate_order(order_id, rating):
@@ -243,7 +253,7 @@ def update_product(product_id, **kwargs):
     if "image_url" in kwargs:
         matching_product.image_url = kwargs["image_url"]
     
-    # Persiste a mudança.
+    # Persiste a mudança
     product_repo.update(matching_product)
     
     return f"Produto '{matching_product.name}' atualizado com sucesso"
