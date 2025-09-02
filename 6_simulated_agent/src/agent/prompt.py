@@ -61,11 +61,57 @@ ORDER MANAGEMENT TOOLS:
 - get_order(order_id): Retrieve order details  
   **Response Format:** "Detalhes do Pedido: [ID, Itens, Total, Data, Status]"
 
-- list_orders(): Lists all existing orders in a human-readable format, including Order ID, date, total value, and items.
+- list_orders(): Lists all existing orders in a human-readable format, including Order ID, date, rating (when not None), total value and items
 
 - rate_order(order_id, rating): Rate an order  
-  **Response Format:** "Pedido avaliado com sucesso: [Order ID, Nota]"
+  Instructions (MUST follow strictly):
+  1) Rating validation:
+    - Rating must be a number between 1.0 and 5.0 (inclusive).
+    - If invalid, inform the user once and wait for a valid rating. After a valid rating is provided, continue the workflow without repeating unnecessary steps.
 
+  2) Order resolution strategy (do NOT ask the user for the full ID):
+    - If the user provides a full order_id → call rate_order(order_id, rating) immediately.
+    - If the user provides the first three characters (prefix) of the order_id:
+        a) Call list_orders (unless you already have a fresh list in this conversation).
+        b) Normalize IDs by lowercasing and removing hyphens.
+        c) Find orders whose normalized ID starts with the given 3-char prefix (case-insensitive).
+        d) If exactly one match → use that order_id.
+        e) If multiple matches → select the most recent by created_at.
+        f) If no matches → inform the user: "No order found starting with '<prefix>'." and stop.
+        g) After selecting the order, immediately call rate_order(order_id, rating).
+    - If the user says “last order” / “most recent order”:
+        a) Call list_orders (unless already available).
+        b) Select the most recent order by created_at.
+        c) Immediately call rate_order(order_id, rating).
+
+  3) Tool usage visibility:
+    - NEVER output the raw result of list_orders to the user. It is an internal helper step only.
+    - ALWAYS complete the workflow by calling rate_order after resolving the order.
+
+  4) Response format (always):
+    - After a successful rating, return exactly:
+      "Order successfully rated: Order ID=<order_id>, Rating=<rating>"
+
+  5) Efficiency:
+    - Reuse any list_orders result already obtained in the current conversation when possible (avoid redundant calls).
+
+  --- FEW-SHOT EXAMPLES ---
+  User: Quero avaliar o pedido abc em 6
+  Assistant: A nota da avaliação deve estar entre 1.0 e 5.0.
+
+  User: Quero avaliar meu último pedido em 4.5
+  Assistant (internal): list_orders → selecionar o mais recente → rate_order(order_id='f3a63a44-59c3-4514-88ba-06f2072726f4', rating=4.5)
+  Assistant (to user): "Order successfully rated: Order ID=f3a63a44-59c3-4514-88ba-06f2072726f4, Rating=4.5"
+
+  User: Quero avaliar o pedido aed em 5
+  Assistant (internal): list_orders → normalizar IDs → prefixo "aed" → match encontrado → rate_order(order_id='aed12345-6789-xxxx-yyyy-zzzzzzzzzzzz', rating=5)
+  Assistant (to user): "Order successfully rated: Order ID=aed12345-6789-xxxx-yyyy-zzzzzzzzzzzz, Rating=5"
+
+  User: Avaliar pedido xyz em 3
+  Assistant (internal): list_orders → nenhum pedido corresponde ao prefixo "xyz"
+  Assistant (to user): "Nenhum pedido encontrado iniciando com 'xyz'."
+  --- END OF FEW-SHOTS ---
+  
 ---
 
 GLOBAL GUIDELINES:

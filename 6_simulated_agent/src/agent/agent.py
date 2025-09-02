@@ -10,9 +10,9 @@ import json
 import re 
 import ast
 
-from src.utils.agent_prompt import get_agent_prompt
 from src.agent import tools
 from src.agent.memory import Memory
+from src.agent.prompt import get_agent_prompt
 from src.utils.logger import setup_logger, log_execution_time
 
 class APICallTracker:
@@ -193,39 +193,6 @@ class Agent:
 
         return tool(args)
         
-    def _map_user_intent(self, user_question: str) -> str | None:
-        q = user_question.lower()
-
-        # mapeamento de palavras-chave para tool (pode evoluir para NLP simples se quiser)
-        keyword_map = {
-            "produto": "list_products",
-            "produtos": "list_products",
-            "listar produtos": "list_products",
-            "todos produtos": "list_products",
-            "estoque": "list_inventory",
-            "inventário": "list_inventory",
-            "meus pedidos": "list_orders",
-            "histórico de pedidos": "list_orders",
-            "adicionar": "add_product",
-            "atualizar": "update_product",
-            "deletar": "delete_product",
-            "remover": "delete_product",
-            "pedido": "generate_order",
-            "fazer compra": "generate_order",
-            "avaliar pedido": "rate_order",
-        }
-
-        for keyword, tool_name in keyword_map.items():
-            if keyword in q and tool_name in self.TOOLS:
-                return f"{tool_name}()"
-
-        # fallback: se o usuário escrever exatamente o nome de uma tool
-        for tool_name in self.TOOLS:
-            if tool_name in q:
-                return f"{tool_name}()"
-
-        return None
-    
     def _send_to_model(self, messages, timeout=30):
 
         # if not self.api_call_tracker.can_make_call():
@@ -265,45 +232,6 @@ class Agent:
         except Exception as e:
             return f"⚠️ Erro ao processar sua solicitação: {e}"
 
-    def normalize_items(self, items):
-        """
-        Converte items do modelo em lista de dicts válidos para generate_order.
-        Remove campos extras e corrige strings aninhadas.
-        """
-        # Se já é lista de dicts, filtra campos
-        if isinstance(items, list) and all(isinstance(i, dict) for i in items):
-            return [{'product_name': i['product_name'], 'quantity': i['quantity']} for i in items if 'product_name' in i and 'quantity' in i]
-
-        # Se for string, tenta parse
-        if isinstance(items, str):
-            try:
-                import ast
-                items_list = ast.literal_eval(items)
-                if isinstance(items_list, list):
-                    return [{'product_name': i['product_name'], 'quantity': i['quantity']} 
-                            for i in items_list if isinstance(i, dict) and 'product_name' in i and 'quantity' in i]
-            except Exception:
-                pass
-
-        # fallback seguro
-        self.logger.warning(f"normalize_items fallback seguro: {items}")
-        return []
-
-    def _convert_item_str(self, s):
-        # tenta JSON
-        try:
-            return json.loads(s.replace("'", '"'))
-        except Exception:
-            pass
-        # tenta literal_eval
-        try:
-            return ast.literal_eval(s)
-        except Exception:
-            pass
-        # fallback seguro: retorna dict mínimo
-        self.logger.warning(f"Falha ao converter items string, fallback seguro: {s}")
-        return {"product_name": str(s)}
-
     @log_execution_time
     def call(self, user_question):
         self.logger.info(f"User asked: {user_question}")
@@ -313,9 +241,9 @@ class Agent:
 
         max_iterations = 15
         current_iteration = 0
-        completed_actions = set()
         action_counts = {}
         final_result = None
+        self.orders_cache = None  # cache para list_orders
 
         while current_iteration < max_iterations:
             messages = self.memory.get_context()
@@ -338,52 +266,48 @@ class Agent:
                 self.logger.warning(f"Ação '{action_name}' repetida muitas vezes. Encerrando loop.")
                 break
 
-            if action_name in completed_actions:
-                current_iteration += 1
-                continue
-
             try:
                 tool_result = None
                 if action_name in self.TOOLS:
-                    tool_result = self._run_tool(action_name, args=action_args)
+                    # Reuso de cache para list_orders
+                    if action_name == "list_orders" and self.orders_cache is not None:
+                        tool_result = self.orders_cache
+                    else:
+                        tool_result = self._run_tool(action_name, args=action_args)
+                        if action_name == "list_orders":
+                            self.orders_cache = tool_result  # salva cache
 
                     # Serializa resultados complexos
                     serialized_result = tool_result
                     if action_name in ["list_orders", "list_products", "list_inventory"]:
                         if isinstance(tool_result, list):
-                            serialized_result = []
-                            for item in tool_result:
-                                if hasattr(item, "__dict__"):
-                                    serialized_result.append({k: v for k, v in vars(item).items()})
-                                else:
-                                    serialized_result.append(item)
+                            serialized_result = [
+                                {k: v for k, v in vars(item).items()} if hasattr(item, "__dict__") else item
+                                for item in tool_result
+                            ]
                         else:
                             serialized_result = str(tool_result)
 
-                    elif action_name == "generate_order":
-                        if hasattr(tool_result, "__dict__"):
-                            serialized_result = {k: v for k, v in vars(tool_result).items()}
-
-                    self.memory.add_message("function", str(serialized_result), name=action_name)
-                    completed_actions.add(action_name)
-                    self.used_tools.append(action_name)
-
-                    # Guarda resultados de listagens
-                    if action_name in ["list_products", "list_orders", "list_inventory"]:
+                        # Adiciona na memória, mas não retorna imediatamente
+                        self.memory.add_message("function", str(serialized_result), name=action_name)
+                        self.used_tools.append(action_name)
                         final_result = serialized_result
-                        # se a lista estiver vazia, responde direto
-                        if not serialized_result:
-                            return "Não há dados cadastrados no momento."
-                        # caso contrário, retorna já formatado
-                        return serialized_result
+                        current_iteration += 1
+                        continue
 
-                    # Retorna imediatamente se order gerada com sucesso
+                    # Ações finais
                     if action_name == "generate_order":
                         return serialized_result
 
+                    if action_name == "rate_order":
+                        return f"Order successfully rated: Order ID={action_args.get('order_id')}, Rating={action_args.get('rating')}"
+
+                    # Para outras ferramentas, adiciona na memória
+                    self.memory.add_message("function", str(serialized_result), name=action_name)
+                    self.used_tools.append(action_name)
+
             except Exception as e:
                 self.logger.error(f"Erro executando ação '{action_name}': {e}")
-                completed_actions.add(action_name)  # evita repetir
                 current_iteration += 1
                 continue
 
@@ -391,7 +315,6 @@ class Agent:
 
         self.logger.warning("Não foi possível concluir a tarefa completamente.")
         return "Não foi possível concluir a tarefa completamente."
-
-
+    
     def _system_prompt(self):
         return get_agent_prompt()

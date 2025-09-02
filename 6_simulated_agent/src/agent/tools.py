@@ -91,13 +91,13 @@ def list_orders():
             f"Pedido ID: {order.id}\n"
             f"   Data: {date_formatted}\n"
             f"   Valor Total: R${total_value:.2f}\n"
+            f"   Avaliação: {order.rating if order.rating else '--' }\n"
             f"   Itens: {[f'{product_repo.find_by_id(item.product_id).name} ({item.quantity})' for item in order.items]}"
         )
         formatted_orders.append(formatted_order)
     
     # Junta todas as strings de pedidos em uma única mensagem
     return "Aqui está o seu histórico de pedidos:\n\n" + "\n\n".join(formatted_orders)
-
 
 @log_execution_time
 def rate_order(order_id, rating):

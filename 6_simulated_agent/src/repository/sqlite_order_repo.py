@@ -101,12 +101,17 @@ class SQLiteOrderRepository(OrderRepository):
         
         return order
 
-    def rate(self, order_id: str, rating: int) -> None:
+    def rate(self, order_id: str, rating: float) -> None:
         """
         Rate an order and update the average rating of its products
         """
         try:
+            rating = float(rating)  # garante que rating é numérico
             order_model = self.session.query(OrderModel).filter_by(id=order_id).one()
+
+            if not order_model:
+                raise NoResultFound(f"Order not found for id {order_id}")
+
             order_model.rating = rating
 
             # Atualiza os produtos do pedido
@@ -116,9 +121,11 @@ class SQLiteOrderRepository(OrderRepository):
                     if product.average_rating is None:
                         product.average_rating = rating
                     else:
-                        product.average_rating = (product.average_rating + rating) / 2
+                        product.average_rating = (
+                            float(product.average_rating) + rating
+                        ) / 2
 
             self.session.commit()
 
-        except NoResultFound:
-            pass  # Silently ignore if order not found
+        except NoResultFound as e:
+            return f"⚠️ Erro ao avaliar pedido: {e}"
