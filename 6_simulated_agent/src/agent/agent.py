@@ -50,6 +50,7 @@ class Agent:
         self._load_tools()
         self.memory = Memory(max_messages=30)
         self.api_call_tracker = APICallTracker()
+        # self.memory.add_message("system", self._system_prompt()) # Inicia com o prompt do sistema
 
         if provider == 'openai':
             self._setup_openai()
@@ -153,45 +154,17 @@ class Agent:
         if not tool:
             raise ValueError(f"Tool '{action_name}' not found")
 
-        self.logger.debug(f"_run_tool chamado com action='{action_name}', args={args}")
+        result = tool(**args) if args else tool()
 
-        if args is None:
-            return tool()
+        # Atualiza memória de estado para ações importantes
+        if action_name == "get_product":
+            self.memory.set_state("ultimo_produto_consultado", args.get("product_name"))
+        elif action_name == "generate_order":
+            self.memory.set_state("ultimo_pedido", result.get("order_id") if isinstance(result, dict) else str(result))
+        elif action_name == "rate_order":
+            self.memory.set_state("ultimo_pedido_avaliado", args.get("order_id"))
 
-        if isinstance(args, dict):
-            if action_name == "generate_order" and "items" in args and isinstance(args["items"], str):
-                items_str = args["items"]
-                # Tenta extrair o array completo do começo até o último ']'
-                match = re.search(r"\[.*\]", items_str)
-                if match:
-                    items_str = match.group(0)
-                try:
-                    args["items"] = json.loads(items_str.replace("'", '"'))
-                except Exception:
-                    try:
-                        args["items"] = ast.literal_eval(items_str)
-                    except Exception:
-                        self.logger.warning(f"Falha ao converter items string, fallback seguro: {items_str}")
-                        args["items"] = [items_str]  # fallback seguro
-            return tool(**args)
-
-        if isinstance(args, list):
-            return tool(items=args)
-
-        if isinstance(args, str):
-            for parser in (ast.literal_eval, lambda x: json.loads(x.replace("'", '"'))):
-                try:
-                    parsed = parser(args)
-                    if isinstance(parsed, dict):
-                        return tool(**parsed)
-                    if isinstance(parsed, list):
-                        return tool(items=parsed)
-                    return tool(parsed)
-                except Exception:
-                    continue
-            return tool(args)
-
-        return tool(args)
+        return result
         
     def _send_to_model(self, messages, timeout=30):
 
@@ -243,7 +216,6 @@ class Agent:
         current_iteration = 0
         action_counts = {}
         final_result = None
-        self.orders_cache = None  # cache para list_orders
 
         while current_iteration < max_iterations:
             messages = self.memory.get_context()
@@ -269,13 +241,7 @@ class Agent:
             try:
                 tool_result = None
                 if action_name in self.TOOLS:
-                    # Reuso de cache para list_orders
-                    if action_name == "list_orders" and self.orders_cache is not None:
-                        tool_result = self.orders_cache
-                    else:
-                        tool_result = self._run_tool(action_name, args=action_args)
-                        if action_name == "list_orders":
-                            self.orders_cache = tool_result  # salva cache
+                    tool_result = self._run_tool(action_name, args=action_args)
 
                     # Serializa resultados complexos
                     serialized_result = tool_result
