@@ -50,7 +50,7 @@ class Agent:
         self._load_tools()
         self.memory = Memory(max_messages=30)
         self.api_call_tracker = APICallTracker()
-        # self.memory.add_message("system", self._system_prompt()) # Inicia com o prompt do sistema
+        self.memory.add_message("system", self._system_prompt()) # Inicia com o prompt do sistema
 
         if provider == 'openai':
             self._setup_openai()
@@ -163,6 +163,32 @@ class Agent:
             self.memory.set_state("ultimo_pedido", result.get("order_id") if isinstance(result, dict) else str(result))
         elif action_name == "rate_order":
             self.memory.set_state("ultimo_pedido_avaliado", args.get("order_id"))
+        elif action_name == "list_products":
+            produtos_dict = [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "price": p.price,
+                    "average_rating": p.average_rating,
+                    "image_url": p.image_url
+                }
+                for p in result
+            ]
+            self.memory.set_state("ultimos_produtos_listados", produtos_dict)
+        elif action_name == "list_inventory":
+            # Salva o resumo completo do inventário
+            self.memory.set_state("estoque_resumo", result.get("formatted_summary"))
+
+            # Salva totais numéricos para lógica de negócio
+            self.memory.set_state("estoque_total_produtos", result.get("total_products"))
+            self.memory.set_state("estoque_total_itens", result.get("total_items"))
+
+            # Salva a lista detalhada (como strings já formatadas)
+            self.memory.set_state("estoque_lista", result.get("inventory_list"))
+
+            # 🔑 Fechar o ciclo: adiciona também a resposta como se fosse do assistente
+            resumo = result.get("formatted_summary", "Estoque listado com sucesso.")
+            self.memory.add_message("assistant", f"Aqui está o resumo do estoque atualizado:\n\n{resumo}")
 
         return result
         
@@ -209,7 +235,7 @@ class Agent:
     def call(self, user_question):
         self.logger.info(f"User asked: {user_question}")
         self.used_tools = []
-        self.memory.add_message("system", self._system_prompt())
+        # self.memory.add_message("system", self._system_prompt())
         self.memory.add_message("user", user_question)
 
         max_iterations = 15
