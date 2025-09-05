@@ -48,25 +48,16 @@ INVENTORY MANAGEMENT TOOLS:
 ---
 
 ORDER MANAGEMENT TOOLS:
-- checkout_chain(customer_name, customer_document, items): Process a complete and safe checkout flow (explicit chain).  
-  **Flow:**  
-  1. Confirm and validate the purchase items.  
-  2. Validate stock for each item using `get_product`.  
-  3. Internally call `generate_order` to create the order.  
-  4. Return the final confirmation to the user.  
+- generate_order(customer_name, customer_document, items): Create a new order  
+  **Response Format:** "Pedido [Order ID] com [Total de Itens] itens e valor total de R$ [Valor Total] criado com sucesso."  
+  Mandatory Rules:  
+  • `customer_name` and `customer_document` are mandatory.
+  • `items` is a list of objects with `product_name` and `quantity` e.g: [{"product_name": "Product A", "quantity": 1}, {"product_name": "Product B", "quantity": 2}].
+  • For each item, always find the product's `product_id` by its `product_name` using the tool `get_product`.
+  • Validate the stock with the tool `get_product` before creating the order to ensure enough quantity is available.
+  • Never ask the user for a product ID.
+  IMPORTANT: Use the tool `get_product` with the product name to find the ID. The `customer_name` does not need to be a full name; a first name is enough. The `customer_document` can be any string.
 
-  **Response Format:**  
-  - Success: "Order [Order ID] with [Total Items] items and total value of R$ [Total Value] created successfully."  
-  - Failure: "Could not complete the order: [Reason]"  
-
-  **Mandatory Rules:**  
-  • `customer_name` and `customer_document` are mandatory.  
-  • `items` must be a list of objects with `product_name` and `quantity`, e.g.:  
-    `[{"product_name": "Product A", "quantity": 1}, {"product_name": "Product B", "quantity": 2}]`.  
-  • Never call `generate_order` directly. Always use `checkout_chain`.  
-  • Never ask the user for a `product_id`; always use `get_product` with the product name to resolve IDs internally.  
-  • `customer_name` can be a simple first name; `customer_document` can be any string.
-  
 - get_order(order_id): Retrieve order details  
   **Response Format:** "Detalhes do Pedido: [ID, Itens, Total, Data, Status]"
 

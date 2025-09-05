@@ -14,7 +14,6 @@ from src.agent import tools
 from src.agent.memory import Memory
 from src.agent.prompt import get_agent_prompt
 from src.utils.logger import setup_logger, log_execution_time
-from src.agent.checkout_chain import CheckoutChain
 
 class APICallTracker:
     def __init__(self, max_calls=50, reset_time=900, max_conversation_calls=10):
@@ -156,9 +155,6 @@ class Agent:
             raise ValueError(f"Tool '{action_name}' not found")
 
         result = tool(**args) if args else tool()
-        
-        ## Tentativa " chain explicito "
-        return result
 
         # Atualiza memória de estado para ações importantes
         if action_name == "get_product":
@@ -239,6 +235,7 @@ class Agent:
     def call(self, user_question):
         self.logger.info(f"User asked: {user_question}")
         self.used_tools = []
+        # self.memory.add_message("system", self._system_prompt())
         self.memory.add_message("user", user_question)
 
         max_iterations = 15
@@ -268,34 +265,6 @@ class Agent:
                 break
 
             try:
-                
-                # ---- Ação especial: CheckoutChain (encerramento determinístico do fluxo) ----
-                if action_name == "checkout_chain":
-                    self.logger.info("➡️ Executando CheckoutChain (explícito)...")
-                    chain = CheckoutChain(self)
-
-                    customer_name = action_args.get("customer_name") if action_args else None
-                    customer_document = action_args.get("customer_document") if action_args else None
-                    items = action_args.get("items") if action_args else None
-
-                    chain_result = chain.run(
-                        customer_name=customer_name,
-                        customer_document=customer_document,
-                        items=items
-                    )
-                    # registra o resultado como uma "function" no histórico
-                    try:
-                        self.memory.add_message("function", json.dumps(chain_result, ensure_ascii=False), name="checkout_chain")
-                    except Exception:
-                        self.memory.add_message("function", str(chain_result), name="checkout_chain")
-
-                    # retorna direto (fluxo fechado e determinístico)
-                    if isinstance(chain_result, dict) and chain_result.get("status") == "success":
-                        return chain_result.get("message") or f"Pedido {chain_result.get('order_id')} criado com sucesso."
-                    else:
-                        return f"Não foi possível finalizar o pedido: {chain_result.get('reason', 'erro desconhecido')}. Detalhes: {chain_result.get('details', '')}"
-
-                # ---- Ações normais ----
                 tool_result = None
                 if action_name in self.TOOLS:
                     tool_result = self._run_tool(action_name, args=action_args)
