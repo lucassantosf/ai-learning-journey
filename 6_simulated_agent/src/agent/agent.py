@@ -49,7 +49,7 @@ class Agent:
 
         self.used_tools = []
         self._load_tools()
-        self.memory = Memory(max_messages=30)
+        self.memory = Memory(max_messages=10)
         self.api_call_tracker = APICallTracker()
         self.memory.add_message("system", self._system_prompt()) # Inicia com o prompt do sistema
 
@@ -157,9 +157,6 @@ class Agent:
 
         result = tool(**args) if args else tool()
         
-        ## Tentativa " chain explicito "
-        return result
-
         # Atualiza memória de estado para ações importantes
         if action_name == "get_product":
             self.memory.set_state("ultimo_produto_consultado", args.get("product_name"))
@@ -198,9 +195,6 @@ class Agent:
         
     def _send_to_model(self, messages, timeout=30):
 
-        # if not self.api_call_tracker.can_make_call():
-        #     raise TimeoutException("⚠️ Limite de chamadas de API excedido.")
-        
         truncated_messages = []
         for msg in messages:
             content = msg['content']
@@ -247,6 +241,11 @@ class Agent:
         final_result = None
 
         while current_iteration < max_iterations:
+            # Antes de mandar pro modelo, já garante truncamento com resumo
+            self.memory._truncate(
+                summarize_fn=lambda text: self._summarize_with_model(text, self)
+            )
+
             messages = self.memory.get_context()
             response = self._send_to_model(messages)
             self.memory.add_message("assistant", response)
