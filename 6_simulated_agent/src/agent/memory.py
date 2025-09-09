@@ -55,41 +55,33 @@ class Memory:
     def _truncate(self, summarize_fn=None):
         """
         Trunca a memória quando o limite é atingido.
-        Se houver summarize_fn, usa o modelo para resumir as mensagens antigas.
-        Caso contrário, apenas concatena em texto bruto.
+        - Nunca resume o prompt inicial (system base).
+        - Resume apenas interações antigas (user/assistant/function).
+        - Mantém as últimas N interações intactas.
         """
+        KEEP_LAST = 6  # mantém as 6 últimas mensagens brutas
+
         if len(self.history) > self.max_messages:
             self.logger.info(f"Criando resumo da memória (total {len(self.history)} mensagens).")
 
-            # Pega as mensagens mais antigas além da metade que queremos manter
-            excess = self.history[:-self.max_messages // 2]
-            text_to_summarize = "\n".join([f"{m['role']}: {m['content']}" for m in excess])
+            # Separa o system base (primeira mensagem)
+            base_system = self.history[0] if self.history and self.history[0]["role"] == "system" else None
 
-            if summarize_fn:
-                summary_text = summarize_fn(text_to_summarize)
-            else:
-                summary_text = text_to_summarize
+            # Pega as mensagens antigas que devem ser resumidas (exclui o system base e as últimas N)
+            excess = self.history[1:-KEEP_LAST]
 
-            # loga o resumo gerado
-            self.logger.debug(f"Resumo gerado:\n{summary_text}")
+            # Concatena em texto
+            text_to_summarize = "\n".join([f"{m['role']}: {m['content']}" for m in excess if m["role"] != "system"])
 
-            # Acumula no resumo
-            self.summary = (self.summary + "\n" if getattr(self, "summary", None) else "") + summary_text
+            if text_to_summarize.strip():
+                summary_text = summarize_fn(text_to_summarize) if summarize_fn else text_to_summarize
+                self.logger.debug(f"Resumo gerado:\n{summary_text}")
 
-            # Mantém só a metade mais recente
-            self.history = self.history[-self.max_messages // 2:]
+                # Cria a entrada de resumo
+                summary_entry = {"role": "system", "content": f"[Conversation Summary]\n{summary_text}"}
 
-        # Truncamento por tokens (se ainda exceder)
-        while self._get_total_tokens() > self.max_tokens and self.history:
-            for i, msg in enumerate(self.history):
-                if msg['role'] != 'system':
-                    if summarize_fn:
-                        self.summary += "\n" + summarize_fn(msg['content'])
-                    else:
-                        self.summary += f"\n{msg['role']}: {msg['content']}"
-                    del self.history[i]
-                    break
-
+                # Reconstrói a history: base_system + resumo + últimas mensagens
+                self.history = ([base_system] if base_system else []) + [summary_entry] + self.history[-KEEP_LAST:]
 
     def _get_total_tokens(self) -> int:
         return sum(len(self.tokenizer.encode(msg['content'])) for msg in self.history)
@@ -126,3 +118,34 @@ class Memory:
         except Exception as e:
             self.logger.error(f"Erro ao resumir: {e}")
             return text[:500]  # fallback em caso de erro
+        
+    def _maybe_summarize_block(self, agent=None, summarize_every=5):
+        """
+        Se o número de mensagens do usuário desde o último resumo >= summarize_every,
+        cria um resumo incremental e substitui essas interações pelo resumo.
+        """
+        # Conta só interações "usuário + assistente"
+        user_msgs = [m for m in self.history if m["role"] == "user"]
+
+        if len(user_msgs) >= summarize_every:
+            # Pega só o bloco a resumir (tudo menos system/resumo)
+            block = []
+            for m in self.history:
+                if m["role"] not in ("system", "summary"):
+                    block.append(f"{m['role']}: {m['content']}")
+
+            text_to_summarize = "\n".join(block)
+
+            if agent:
+                summary_text = self._summarize_with_model(text_to_summarize, agent)
+            else:
+                summary_text = text_to_summarize
+
+            # Cria uma nova entrada de resumo
+            self.history = [m for m in self.history if m["role"] == "system"] + [
+                m for m in self.history if m["role"] == "summary"
+            ] + [{"role": "summary", "content": summary_text}]
+
+            self.logger.info("Resumo incremental adicionado ao histórico:")
+            self.logger.info(summary_text)
+

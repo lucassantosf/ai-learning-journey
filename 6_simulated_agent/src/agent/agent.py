@@ -249,6 +249,7 @@ class Agent:
             messages = self.memory.get_context()
             response = self._send_to_model(messages)
             self.memory.add_message("assistant", response)
+            self.memory._maybe_summarize_block(agent=self)
 
             # Extrai ação do modelo
             action_data = self._extract_action(response)
