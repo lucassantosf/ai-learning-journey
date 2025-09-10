@@ -20,34 +20,25 @@ class Memory:
         if name:
             message["name"] = name
         self.history.append(message)
-        self._truncate()
+        # self._truncate()
 
     def get_context(self) -> list:
         """
         Retorna o resumo acumulado + histórico recente + estado atual como contexto.
         """
         context = []
+        # sempre mantém o system
+        context += [m for m in self.history if m["role"] == "system"]
 
-        # Se já existe um resumo consolidado, injeta como "system"
-        if hasattr(self, "summary") and self.summary:
-            context.append({
-                "role": "system",
-                "content": f"[Conversation Summary]\n{self.summary}"
-            })
+        # mantém todos os resumos
+        context += [m for m in self.history if m["role"] == "summary"]
 
-        # Inclui as mensagens recentes do histórico
-        context.extend(self.history)
-
-        # Inclui também o estado da sessão, se existir
-        if self.session_state:
-            state_str = "\n".join(f"{k}: {v}" for k, v in self.session_state.items())
-            context.append({
-                "role": "system",
-                "content": f"[Session State]\n{state_str}"
-            })
+        # mantém últimas interações ativas
+        active = [m for m in self.history if m["role"] in ("user", "assistant")]
+        context += active[-self.max_messages:]
 
         return context
-
+    
     def clear(self):
         self.history = []
         self.session_state = {}
@@ -59,7 +50,7 @@ class Memory:
         - Resume apenas interações antigas (user/assistant/function).
         - Mantém as últimas N interações intactas.
         """
-        KEEP_LAST = 6  # mantém as 6 últimas mensagens brutas
+        KEEP_LAST = 5  # mantém as 6 últimas mensagens brutas
 
         if len(self.history) > self.max_messages:
             self.logger.info(f"Criando resumo da memória (total {len(self.history)} mensagens).")
@@ -103,23 +94,51 @@ class Memory:
     # ---------------------------
     # Memory summarization with model
     # ---------------------------
-    def _summarize_with_model(self, text: str, agent):
+    def _summarize_intentions_with_model(self, text: str, agent):
         """
-        Usa o modelo do agente para gerar um resumo das mensagens antigas.
+        Usa o modelo do agente para gerar um resumo semântico da conversa,
+        focando em intenções do usuário e ações tomadas.
         """
         prompt = [
-            {"role": "system", "content": "Summarize the following conversation objectively, keep only key facts and decisions."},
+            {"role": "system", "content": (
+                "Resuma a seguinte conversa em português de forma narrativa e contínua, "
+                "como um parágrafo corrido. Não use bullet points, apenas texto fluido."
+                "Não repita literalmente as mensagens. "
+                "Resuma em poucas frases, como um log de intenções."
+            )},
             {"role": "user", "content": text}
         ]
         try:
             summary = agent._send_to_model(prompt)
-            self.logger.info(f"✅ Resumo criado com sucesso (tamanho={len(summary)} chars).")
+            self.logger.info(f"📝 Resumo de intenções criado (tamanho={len(summary)} chars).")
             return summary
         except Exception as e:
-            self.logger.error(f"Erro ao resumir: {e}")
-            return text[:500]  # fallback em caso de erro
+            self.logger.error(f"Erro ao resumir intenções: {e}")
+            return text[:500]  # fallback
         
-    def _maybe_summarize_block(self, agent=None, summarize_every=5):
+    def _summarize_entire_chat_with_model(self, text: str, agent):
+        """
+        Usa o modelo do agente para gerar um resumo para o titulo da conversa,
+        focando em intenções do usuário ou ações tomadas.
+        """
+        prompt = [
+            {"role": "system", "content": (
+                "Crie um título curto para a seguinte conversa em português. "
+                "O título deve ter no máximo 8 palavras, ser claro e objetivo, "
+                "sem repetir literalmente as mensagens. "
+                "Não use pontuação desnecessária, apenas texto simples."
+            )},
+            {"role": "user", "content": text}
+        ]
+        try:
+            summary = agent._send_to_model(prompt)
+            self.logger.info(f"📝 Resumo de intenções criado (tamanho={len(summary)} chars).")
+            return summary
+        except Exception as e:
+            self.logger.error(f"Erro ao resumir intenções: {e}")
+            return text[:500]  # fallback
+        
+    def _maybe_summarize_block(self, agent=None, summarize_every=5, chat= False):
         """
         Se o número de mensagens do usuário desde o último resumo >= summarize_every,
         cria um resumo incremental e substitui essas interações pelo resumo.
@@ -136,8 +155,10 @@ class Memory:
 
             text_to_summarize = "\n".join(block)
 
-            if agent:
-                summary_text = self._summarize_with_model(text_to_summarize, agent)
+            if agent and chat:
+                summary_text = self._summarize_entire_chat_with_model(text_to_summarize, agent)
+            elif agent:
+                summary_text = self._summarize_intentions_with_model(text_to_summarize, agent)
             else:
                 summary_text = text_to_summarize
 

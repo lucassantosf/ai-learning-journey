@@ -242,9 +242,9 @@ class Agent:
 
         while current_iteration < max_iterations:
             # Antes de mandar pro modelo, já garante truncamento com resumo
-            self.memory._truncate(
-                summarize_fn=lambda text: self._summarize_with_model(text, self)
-            )
+            # self.memory._truncate(
+            #     summarize_fn=lambda text: self._summarize_with_model(text, self)
+            # )
 
             messages = self.memory.get_context()
             response = self._send_to_model(messages)

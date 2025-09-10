@@ -33,6 +33,17 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
             }
+        },
+        {
+            "name": "Python: tests/memory_summarizer.py",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/tests/memory_summarizer.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
         }
     ]
 }
