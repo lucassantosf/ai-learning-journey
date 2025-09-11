@@ -240,12 +240,7 @@ class Agent:
         action_counts = {}
         final_result = None
 
-        while current_iteration < max_iterations:
-            # Antes de mandar pro modelo, já garante truncamento com resumo
-            # self.memory._truncate(
-            #     summarize_fn=lambda text: self._summarize_with_model(text, self)
-            # )
-
+        while current_iteration < max_iterations:  
             messages = self.memory.get_context()
             response = self._send_to_model(messages)
             self.memory.add_message("assistant", response)
@@ -312,11 +307,12 @@ class Agent:
                             serialized_result = str(tool_result)
 
                         # Adiciona na memória, mas não retorna imediatamente
+                        # registra no histórico
                         self.memory.add_message("function", str(serialized_result), name=action_name)
                         self.used_tools.append(action_name)
-                        final_result = serialized_result
-                        current_iteration += 1
-                        continue
+
+                        # 🚨 devolve direto para o usuário em vez de continuar no loop
+                        return serialized_result
 
                     # Ações finais
                     if action_name == "generate_order":
