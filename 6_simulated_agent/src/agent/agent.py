@@ -269,22 +269,17 @@ class Agent:
                     self.logger.info("➡️ Executando CheckoutChain (explícito)...")
                     chain = CheckoutChain(self)
 
-                    customer_name = action_args.get("customer_name") if action_args else None
-                    customer_document = action_args.get("customer_document") if action_args else None
-                    items = action_args.get("items") if action_args else None
-
                     chain_result = chain.run(
-                        customer_name=customer_name,
-                        customer_document=customer_document,
-                        items=items
+                        customer_name=action_args.get("customer_name") if action_args else None,
+                        customer_document=action_args.get("customer_document") if action_args else None,
+                        items=action_args.get("items") if action_args else None,
                     )
-                    # registra o resultado como uma "function" no histórico
-                    try:
-                        self.memory.add_message("function", json.dumps(chain_result, ensure_ascii=False), name="checkout_chain")
-                    except Exception:
-                        self.memory.add_message("function", str(chain_result), name="checkout_chain")
 
-                    # retorna direto (fluxo fechado e determinístico)
+                    # registra como function + assistant
+                    serialized_chain = json.dumps(chain_result, ensure_ascii=False)
+                    self.memory.add_message("function", serialized_chain, name="checkout_chain")
+                    self.memory.add_message("assistant", f"Resultado de checkout_chain: {serialized_chain}")
+
                     if isinstance(chain_result, dict) and chain_result.get("status") == "success":
                         return chain_result.get("message") or f"Pedido {chain_result.get('order_id')} criado com sucesso."
                     else:
@@ -296,34 +291,28 @@ class Agent:
                     tool_result = self._run_tool(action_name, args=action_args)
 
                     # Serializa resultados complexos
-                    serialized_result = tool_result
-                    if action_name in ["list_orders", "list_products", "list_inventory"]:
-                        if isinstance(tool_result, list):
-                            serialized_result = [
-                                {k: v for k, v in vars(item).items()} if hasattr(item, "__dict__") else item
-                                for item in tool_result
-                            ]
-                        else:
-                            serialized_result = str(tool_result)
+                    if isinstance(tool_result, list):
+                        serialized_result = [
+                            vars(item) if hasattr(item, "__dict__") else item
+                            for item in tool_result
+                        ]
+                    elif hasattr(tool_result, "__dict__"):
+                        serialized_result = vars(tool_result)
+                    else:
+                        serialized_result = tool_result
 
-                        # Adiciona na memória, mas não retorna imediatamente
-                        # registra no histórico
-                        self.memory.add_message("function", str(serialized_result), name=action_name)
-                        self.used_tools.append(action_name)
+                    serialized_str = json.dumps(serialized_result, ensure_ascii=False)
 
-                        # 🚨 devolve direto para o usuário em vez de continuar no loop
-                        return serialized_result
+                    # Adiciona como function e também assistant
+                    self.memory.add_message("function", serialized_str, name=action_name)
+                    self.memory.add_message("assistant", f"Resultado de {action_name}: {serialized_str}")
+                    self.used_tools.append(action_name)
 
-                    # Ações finais
+                    # Fluxos finais explícitos
                     if action_name == "generate_order":
                         return serialized_result
-
                     if action_name == "rate_order":
                         return f"Order successfully rated: Order ID={action_args.get('order_id')}, Rating={action_args.get('rating')}"
-
-                    # Para outras ferramentas, adiciona na memória
-                    self.memory.add_message("function", str(serialized_result), name=action_name)
-                    self.used_tools.append(action_name)
 
             except Exception as e:
                 self.logger.error(f"Erro executando ação '{action_name}': {e}")
