@@ -1,0 +1,17 @@
+--- OK
+Lista os produtos disponiveis por favor para comprar
+Me cadastre o produto "Cadeira Confortável" com o preco de R$ 200
+Preciso ver os detalhes do produto o produto "Cadeira Confortável" 
+Preciso atualizar o produto "Cadeira Confortável", o nome correto é "Cadeira Confortável 2.0 Slim" com o preco de R$ 1500
+Preciso deletar o produto "Cadeira Confortável 2.0 Slim"
+
+--- OK
+Me lista o estoque disponivel por produto por favor 
+Preciso adicionar 10 unidades no produto "Full HD 1080p Webcam"
+Preciso remover 2 unidades no produto "Full HD 1080p Webcam"
+
+--- OK
+Preciso fazer uma compra do produto "Full HD 1080p Webcam" em 1 unidade, meu nome é lucas CPF 11122233344
+Preciso fazer uma compra do produto "Full HD 1080p Webcam" em 2 unidade, e 1 "Gaming Notebook X15", meu nome é lucas CPF 11122233344
+Me lista meu histórico de pedidos por favor
+Avaliar meu ultimo pedido em 4.0 
