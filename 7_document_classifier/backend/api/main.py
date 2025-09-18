@@ -1,15 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import settings
-from app.routes import health, upload
+from api.core.config import settings
+from api.routes import health, upload
 
-app = FastAPI(
+api = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
 )
 
 # Configuração de CORS
-app.add_middleware(
+api.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],  # Frontend Next.js local
     allow_credentials=True,
@@ -18,5 +18,5 @@ app.add_middleware(
 )
 
 # Rotas
-app.include_router(health.router)
-app.include_router(upload.router)
+api.include_router(health.router)
+api.include_router(upload.router)

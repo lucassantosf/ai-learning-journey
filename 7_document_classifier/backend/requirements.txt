@@ -1,3 +1,8 @@
 fastapi==0.115.13
 uvicorn==0.34.3
 python-multipart
+pdfplumber
+reportlab
+pytest
+docx2txt
+python-docx
