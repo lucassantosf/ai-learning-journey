@@ -1,10 +1,11 @@
-import HelloWorld from "../components/HelloWorld";
+import Header from "../components/Header";
+import Upload from "../components/Upload"
 import Link from "next/link";
 import { useState } from "react";
 import { apiGet } from "../services/api";
+import styles from "../styles/pages/Index.module.css";
 
 export default function Home() {
-
   const [health, setHealth] = useState<any>(null);
 
   async function checkHealth() {
@@ -17,14 +18,17 @@ export default function Home() {
   }
 
   return (
-    <div style={{ padding: "20px", textAlign: "center" }}>
-      <HelloWorld />
-      <Link href="/about">Go to About Page</Link>
+    <div className={styles.container}>
+      <Header />
+      <Upload />
+      <Link href="/about" className={styles.link}>Go to About Page</Link>
 
-      <button onClick={checkHealth}>Checar Backend</button>
+      <button onClick={checkHealth} className={styles.healthButton}>
+        Checar Backend
+      </button>
 
       {health && (
-        <pre style={{ marginTop: "1rem", background: "#f4f4f4", padding: "1rem" }}>
+        <pre className={styles.healthOutput}>
           {JSON.stringify(health, null, 2)}
         </pre>
       )}
