@@ -11,6 +11,17 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
             }
+        },
+        {
+            "name": "Python: build_dataset.py",
+            "type": "python",
+            "request": "launch",
+            "pythonPath": "/home/lucas/Projects/ai-learning-journey/.venv/bin/python",
+            "program": "${workspaceFolder}/backend/services/build_dataset.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
         }
     ]
 }
