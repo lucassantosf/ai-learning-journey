@@ -12,14 +12,20 @@ OUTPUT_FILE = Path(__file__).resolve().parent.parent / "dataset" / "embeddings.j
 def parse_file(file_path: Path) -> str:
     """Extrai texto de um arquivo PDF ou DOCX."""
     ext = file_path.suffix.lower()
+    text = ""
+
     if ext == ".pdf":
         parser = PDFParser(str(file_path))
-        return parser.extract_text()
+        text = parser.extract_text()
     elif ext == ".docx":
         parser = DocxParser(str(file_path))
-        return parser.get_text()
-    else:
-        return ""
+        text = parser.get_text()
+
+    # Garante que sempre retorna uma string
+    if isinstance(text, list):
+        text = " ".join(text)
+
+    return text.strip()
 
 def build_dataset():
     vector_store = VectorStore()
@@ -36,16 +42,17 @@ def build_dataset():
                     print(f"⚠️ Arquivo vazio ou não suportado: {file_path}")
                     continue
 
-                embedding = embedder.generate_embedding(text)
+                embeddings = embedder.generate_embeddings(text)
 
-                vector_store.add(
-                    {
-                        "doc_id": file_path.stem,
-                        "class_label": class_label,
-                        "source": str(file_path),
-                        "embedding": embedding
-                    }
-                )
+                for idx,embedding in enumerate(embeddings):
+                    vector_store.add(
+                        embedding,
+                        {
+                            "doc_id": f"{file_path.stem}_chunk{idx}",
+                            "class_label": class_label,
+                            "source": str(file_path),
+                        }
+                    )
 
     # Salva em JSON para reuso
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
@@ -53,5 +60,26 @@ def build_dataset():
 
     print(f"✅ Dataset salvo em {OUTPUT_FILE}")
 
+def test_search():
+    vector_store = VectorStore()
+    embedder = Embedder()
+
+    # Carrega dataset salvo
+    with open(OUTPUT_FILE, "r", encoding="utf-8") as f:
+        dataset = json.load(f)
+        for embedding, metadata in dataset:
+            vector_store.add(embedding, metadata)
+
+    # Query de teste
+    query_text = "THOMAS SMITH"
+    query_embedding = embedder.generate_embeddings(query_text)[0]  # pega o primeiro chunk
+
+    # Busca
+    results = vector_store.search(query_embedding, top_k=3)
+
+    for meta, score in results:
+        print(f"{meta['class_label']} - {meta['doc_id']} - Similaridade: {score:.4f}")
+
 if __name__ == "__main__":
-    build_dataset()
+    # build_dataset() 
+    test_search() 

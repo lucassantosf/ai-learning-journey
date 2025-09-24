@@ -6,3 +6,6 @@ reportlab
 pytest
 docx2txt
 python-docx
+openai
+python-dotenv
+tiktoken
