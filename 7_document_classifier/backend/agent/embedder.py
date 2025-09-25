@@ -1,3 +1,4 @@
+import numpy as np
 from dotenv import load_dotenv
 from typing import List
 from openai import OpenAI
@@ -42,7 +43,11 @@ class Embedder:
                 input=chunk
             )
             embeddings.append(response.data[0].embedding)
-        return embeddings
+
+        # 🔹 Se o texto for muito longo, tira a média dos embeddings
+        if len(embeddings) > 1:
+            return np.mean(embeddings, axis=0).tolist()
+        return embeddings[0]
 
     def generate_batch(self, texts: List[str]) -> List[List[float]]:
         """

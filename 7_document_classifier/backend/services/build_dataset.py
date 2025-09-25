@@ -9,6 +9,7 @@ from backend.agent.vector_store import VectorStore
 DATASET_DIR = Path(__file__).resolve().parent.parent / "dataset"
 OUTPUT_FILE = Path(__file__).resolve().parent.parent / "dataset" / "embeddings.json"
 
+
 def parse_file(file_path: Path) -> str:
     """Extrai texto de um arquivo PDF ou DOCX."""
     ext = file_path.suffix.lower()
@@ -27,6 +28,7 @@ def parse_file(file_path: Path) -> str:
 
     return text.strip()
 
+
 def build_dataset():
     vector_store = VectorStore()
     embedder = Embedder()
@@ -38,27 +40,29 @@ def build_dataset():
 
             for file_path in class_dir.glob("*"):
                 text = parse_file(file_path)
-                if not text.strip():
+                if not text:
                     print(f"⚠️ Arquivo vazio ou não suportado: {file_path}")
                     continue
 
-                embeddings = embedder.generate_embeddings(text)
+                # Gera embedding do texto (já retorna lista de floats)
+                embedding = embedder.generate_embeddings(text)
+                print(f"Embedding carregado ({file_path.name}): {len(embedding)} dimensões")
 
-                for idx,embedding in enumerate(embeddings):
-                    vector_store.add(
-                        embedding,
-                        {
-                            "doc_id": f"{file_path.stem}_chunk{idx}",
-                            "class_label": class_label,
-                            "source": str(file_path),
-                        }
-                    )
+                vector_store.add(
+                    embedding,
+                    {
+                        "doc_id": file_path.stem,
+                        "class_label": class_label,
+                        "source": str(file_path),
+                    }
+                )
 
     # Salva em JSON para reuso
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(vector_store.vectors, f, ensure_ascii=False, indent=2)
 
     print(f"✅ Dataset salvo em {OUTPUT_FILE}")
+
 
 def test_search():
     vector_store = VectorStore()
@@ -72,7 +76,7 @@ def test_search():
 
     # Query de teste
     query_text = "THOMAS SMITH"
-    query_embedding = embedder.generate_embeddings(query_text)[0]  # pega o primeiro chunk
+    query_embedding = embedder.generate_embeddings(query_text)  # lista completa, não apenas o primeiro float
 
     # Busca
     results = vector_store.search(query_embedding, top_k=3)
@@ -80,6 +84,7 @@ def test_search():
     for meta, score in results:
         print(f"{meta['class_label']} - {meta['doc_id']} - Similaridade: {score:.4f}")
 
+
 if __name__ == "__main__":
-    # build_dataset() 
-    test_search() 
+    build_dataset()
+    # test_search()
