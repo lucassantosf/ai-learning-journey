@@ -44,7 +44,7 @@ class Embedder:
             )
             embeddings.append(response.data[0].embedding)
 
-        # 🔹 Se o texto for muito longo, tira a média dos embeddings
+        # Se o texto for muito longo, tira a média dos embeddings
         if len(embeddings) > 1:
             return np.mean(embeddings, axis=0).tolist()
         return embeddings[0]

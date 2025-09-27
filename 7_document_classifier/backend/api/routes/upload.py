@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, File, Form, UploadFile, HTTPException, status
 import os, tempfile, json
 from pathlib import Path
 from services.docx_parser import DocxParser
@@ -8,13 +8,13 @@ from agent.vector_store import VectorStore
 
 router = APIRouter()
 
-# 🔹 Carrega dataset na inicialização
+# Carrega dataset na inicialização
 DATASET_FILE = Path(__file__).resolve().parent.parent.parent / "dataset" / "embeddings.json"
 vector_store = VectorStore()
 with open(DATASET_FILE, "r", encoding="utf-8") as f:
     dataset = json.load(f)
     for embedding, metadata in dataset:
-        # 🔹 Normaliza o formato
+        # Normaliza o formato
         if isinstance(embedding, list) and len(embedding) == 1 and isinstance(embedding[0], list):
             embedding = embedding[0]  # remove nesting [[...]] → [...]
         elif isinstance(embedding, float):
@@ -27,11 +27,18 @@ embedder = Embedder()
 
 @router.post("/upload")
 async def upload_file(
-    name: str = Form(...),
+    name: str = Form(None),
     file: UploadFile = File(...)
 ):
     filename, file_extension = os.path.splitext(file.filename)
 
+    # Check for supported file extensions first
+    if file_extension.lower() not in [".pdf", ".docx"]:
+        return {
+            "status": "error", 
+            "content": "Not supported format"
+        }
+    
     with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as tmp:
         tmp.write(await file.read())
         tmp_path = tmp.name
@@ -51,9 +58,8 @@ async def upload_file(
 
     if not clean_text.strip():
         return {"status": "error", "message": "Arquivo vazio ou não suportado"}
-    
 
-    # 🔹 Embeddings e classificação
+    # Embeddings e classificação
     query_embedding = embedder.generate_embeddings(clean_text)
     predicted_class, confidence, _ = vector_store.predict_class(query_embedding)
 
