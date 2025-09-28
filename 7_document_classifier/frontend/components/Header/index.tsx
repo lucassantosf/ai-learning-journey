@@ -9,9 +9,9 @@ interface HeaderProps {
 }
 
 export default function Header({ 
-  title = "Classificador de Documentos🚀", 
+  title = "Document Classifier", 
   pageTitle, 
-  description = "Classificador inteligente de documentos (contratos, currículos, notas fiscais)" 
+  description = "Intelligent document classifier (contracts, resumes, invoices)" 
 }: HeaderProps) {
   return (
     <>

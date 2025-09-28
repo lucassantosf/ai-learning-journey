@@ -10,6 +10,8 @@ npm run dev
 
 # Execute only backend
 
+First, active the .venv
+
 cd backend/
 
 uvicorn api.main:api --host 0.0.0.0 --port 8000 --reload
