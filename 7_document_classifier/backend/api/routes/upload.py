@@ -5,6 +5,7 @@ from services.docx_parser import DocxParser
 from services.pdf_parser import PDFParser
 from agent.embedder import Embedder
 from agent.vector_store import VectorStore
+from agent.vector_store import PromptEngine
 
 router = APIRouter()
 
@@ -63,8 +64,13 @@ async def upload_file(
     query_embedding = embedder.generate_embeddings(clean_text)
     predicted_class, confidence, _ = vector_store.predict_class(query_embedding)
 
+    # Extração com prompt específico
+    prompt_engine = PromptEngine()
+    extracted_data = prompt_engine.extract(predicted_class, clean_text)
+
     return {
         "status": "success",
         "predicted_class": predicted_class,
-        "confidence": round(confidence, 4)
+        "confidence": round(confidence, 4),
+        "extracted_data": extracted_data
     }
