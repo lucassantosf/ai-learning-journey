@@ -6,10 +6,9 @@ from backend.agent.embedder import Embedder
 from backend.agent.vector_store import VectorStore
 from backend.services.pdf_parser import PDFParser
 from backend.services.docx_parser import DocxParser
-
+from backend.agent.prompt_engine import PromptEngine
 
 DATASET_FILE = Path(__file__).resolve().parent.parent / "dataset" / "embeddings.json"
-
 
 def _parse_file(file_path: str) -> str:
     """
@@ -22,17 +21,18 @@ def _parse_file(file_path: str) -> str:
         return DocxParser(file_path).get_text()
     return ""
 
-
 class PromptEngineTester:
     """
-    Classe de teste para rodar queries contra embeddings.json,
-    mas lendo o conteúdo real dos arquivos (via source).
+    Classe de teste: busca nos embeddings,
+    carrega texto real dos documentos,
+    e passa para o PromptEngine.
     """
 
     def __init__(self):
         self.client = OpenAI()
         self.embedder = Embedder()
         self.vector_store = VectorStore()
+        self.prompt_engine = PromptEngine()
 
         # Carrega embeddings existentes
         with open(DATASET_FILE, "r", encoding="utf-8") as f:
@@ -40,15 +40,13 @@ class PromptEngineTester:
             for embedding, metadata in dataset:
                 self.vector_store.add(embedding, metadata)
 
-    def query(self, query_text: str, category: str = None, top_k: int = 3):
+    def query(self, category: str, top_k: int = 1):
         """
-        Faz a busca e roda o LLM para extrair informações reais.
+        Busca documentos da categoria e roda o extrator específico.
         """
-        query_embedding = self.embedder.generate_embeddings(query_text)
+        query_embedding = self.embedder.generate_embeddings(category)
         results = self.vector_store.search(query_embedding, top_k=top_k)
 
-        # Carrega o texto real de cada documento encontrado
-        context_chunks = []
         for meta, score in results:
             file_path = meta.get("source")
             if not file_path or not Path(file_path).exists():
@@ -58,49 +56,28 @@ class PromptEngineTester:
             if not text.strip():
                 continue
 
-            context_chunks.append(f"[{meta['class_label']} - {meta['doc_id']}]\n{text[:1500]}")
-            # corta para não mandar texto demais (ex: 1500 chars máx por doc)
+            # Chama o motor de prompt específico
+            return self.prompt_engine.extract(category, text)
 
-        if not context_chunks:
-            return {"error": "Nenhum documento válido encontrado"}
-
-        context_text = "\n\n".join(context_chunks)
-
-        # Monta o prompt
-        prompt = f"""
-        Você é um assistente especializado em extração de informações.
-
-        Pergunta do usuário: "{query_text}"
-        Categoria esperada: "{category}"
-
-        Contexto extraído dos documentos:
-        {context_text}
-
-        Responda de forma objetiva, apenas com a informação solicitada.
-        """
-
-        response = self.client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}]
-        )
-
-        return response.choices[0].message.content
-
+        return {"error": "Nenhum documento válido encontrado"}
 
 if __name__ == "__main__":
+    """
+    This class is executed only for tests and debug purposes only 
+    """
     tester = PromptEngineTester()
 
     # Exemplo 1: currículo
     print("=== TESTE CURRÍCULO ===")
-    result = tester.query("Qual é o nome completo do candidato?", category="curriculo")
+    result = tester.query(category="resumes")
     print(result)
 
     # Exemplo 2: nota fiscal
     print("\n=== TESTE NOTA FISCAL ===")
-    result = tester.query("Qual é o CNPJ do emitente?", category="nota_fiscal")
+    result = tester.query(category="invoices")
     print(result)
 
     # Exemplo 3: contrato
     print("\n=== TESTE CONTRATO ===")
-    result = tester.query("Quais são as partes envolvidas?", category="contrato")
+    result = tester.query(category="contracts")
     print(result)

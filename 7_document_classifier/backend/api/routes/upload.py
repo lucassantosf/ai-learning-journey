@@ -5,7 +5,7 @@ from services.docx_parser import DocxParser
 from services.pdf_parser import PDFParser
 from agent.embedder import Embedder
 from agent.vector_store import VectorStore
-from agent.vector_store import PromptEngine
+from agent.prompt_engine import PromptEngine
 
 router = APIRouter()
 
