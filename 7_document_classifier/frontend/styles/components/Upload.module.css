@@ -31,4 +31,37 @@
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.saveButton:disabled {
+  cursor: not-allowed;
+}
+
+.resultContainer {
+  margin-top: 20px;
+  width: 100%;
+  max-width: 400px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.successResult {
+  color: #28a745;
+}
+
+.errorResult {
+  color: #dc3545;
+}
+
+.resultContainer pre {
+  background-color: #e9ecef;
+  padding: 10px;
+  border-radius: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
