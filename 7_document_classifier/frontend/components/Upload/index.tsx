@@ -1,26 +1,19 @@
 import React, { useState } from 'react';
 import styles from "../../styles/components/Upload.module.css";
-import { apiService } from '../../services/api'; // We'll create this service
+import { apiService } from '../../services/api';  
 
 // Define an interface for the upload result
-interface UploadResult {
-  status: 'success' | 'error';
-  predicted_class?: string;
-  confidence?: number;
-  extracted_data?: any;
-  content?: string;
+interface UploadProps {
+  onUploadComplete: (result: any) => void;
 }
 
-export default function Upload() {
+export default function Upload({ onUploadComplete }: UploadProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setFile(e.target.files[0]);
-      // Reset previous upload result when a new file is selected
-      setUploadResult(null);
     }
   };
 
@@ -30,47 +23,20 @@ export default function Upload() {
     }
 
     setIsLoading(true);
-    setUploadResult(null);
 
     try {
       const result = await apiService.uploadDocument(file);
-      setUploadResult(result);
+      onUploadComplete(result);
     } catch (error) {
-      setUploadResult({
-        status: 'error',
-        content: error instanceof Error ? error.message : 'An unknown error occurred'
+      onUploadComplete({
+        status: "error",
+        content: error instanceof Error ? error.message : "Unknown error",
       });
     } finally {
       setIsLoading(false);
     }
   };
-
-  const renderUploadResult = () => {
-    if (!uploadResult) return null;
-
-    return (
-      <div className={styles.resultContainer}>
-        <h3>Upload Result</h3>
-        {uploadResult.status === 'success' ? (
-          <div className={styles.successResult}>
-            <p>Status: Success</p>
-            <p>Document Type: {uploadResult.predicted_class}</p>
-            <p>Confidence: {uploadResult.confidence?.toFixed(2)}%</p>
-            <details>
-              <summary>Extracted Data</summary>
-              <pre>{JSON.stringify(uploadResult.extracted_data, null, 2)}</pre>
-            </details>
-          </div>
-        ) : (
-          <div className={styles.errorResult}>
-            <p>Status: Error</p>
-            <p>{uploadResult.content || 'Upload failed'}</p>
-          </div>
-        )}
-      </div>
-    );
-  };
-
+ 
   return (
     <div className={styles.container}>
       <div className={styles.uploadBox}>
@@ -85,10 +51,16 @@ export default function Upload() {
           className={styles.saveButton}
           disabled={!file || isLoading}
         >
-          {isLoading ? 'Uploading...' : 'Save'}
+          {isLoading ? (
+            <>
+              <span className={styles.spinner}></span>
+              Uploading...
+            </>
+          ) : (
+            "Save"
+          )}
         </button>
       </div>
-      {renderUploadResult()}
     </div>
   );
 }

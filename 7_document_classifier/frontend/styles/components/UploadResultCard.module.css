@@ -1,0 +1,24 @@
+.container {
+  padding: 20px;
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.successResult {
+  color: #28a745;
+}
+
+.errorResult {
+  color: #dc3545;
+}
+
+.container pre {
+  background-color: #f4f4f4;
+  padding: 10px;
+  border-radius: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

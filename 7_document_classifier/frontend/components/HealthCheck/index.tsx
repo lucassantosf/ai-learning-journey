@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import styles from "../../styles/components/HealthCheck.module.css";
-import { apiGet } from "../../services/api";
+import { apiService } from "../../services/api";
 import Link from "next/link";
 
 export default function HealthChecker() {
@@ -8,7 +8,7 @@ export default function HealthChecker() {
 
   async function checkHealth() {
     try {
-      const data = await apiGet("/health");
+      const data = await apiService.healthCheck();
       setHealth({ status: 200 });
     } catch (err: any) {
       setHealth({ status: 500, error: err.message });

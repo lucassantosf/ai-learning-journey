@@ -58,3 +58,10 @@
 .cardContent p {
   color: #7f8c8d;
 }
+
+.resultRow {
+  margin-top: 2rem;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
