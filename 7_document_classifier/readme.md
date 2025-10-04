@@ -25,3 +25,11 @@ python -m backend.services.build_dataset
 cd backend/
 
 python -m pytest
+
+# To extract OCR, necessary install: 
+
+sudo apt-get install tesseract-ocr
+sudo apt-get update
+sudo apt-get install tesseract-ocr tesseract-ocr-por
+
+pip install pytesseract pdf2image

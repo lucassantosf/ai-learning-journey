@@ -9,3 +9,5 @@ python-docx
 openai
 python-dotenv
 tiktoken
+pytesseract
+pdf2image
