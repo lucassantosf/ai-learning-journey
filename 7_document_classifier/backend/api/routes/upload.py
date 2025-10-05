@@ -4,6 +4,8 @@ from pathlib import Path
 from services.docx_parser import DocxParser
 from services.pdf_parser import PDFParser
 from services.logger import classification_logger, error_logger, app_logger
+from services.file_parser import parse_file
+
 from agent.embedder import Embedder
 from agent.vector_store import VectorStore
 from agent.prompt_engine import PromptEngine
@@ -59,16 +61,8 @@ async def upload_file(
             tmp.write(await file.read())
             tmp_path = tmp.name
 
-        # Extrai texto
-        if file_extension.lower() == ".pdf":
-            parser = PDFParser(tmp_path)
-            clean_text = parser.extract_text()
-            clean_text = " ".join(clean_text)  # junta as páginas em uma única string
-        elif file_extension.lower() == ".docx":
-            parser = DocxParser(tmp_path)
-            clean_text = parser.get_text()
-        else:
-            clean_text = ""
+        # Extrai texto (com fallback para OCR se necessário)
+        clean_text = parse_file(tmp_path)
 
         os.remove(tmp_path)
 

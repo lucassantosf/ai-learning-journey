@@ -28,5 +28,5 @@ class OCRExtractor:
 
 if __name__ == "__main__":
     ocr = OCRExtractor()
-    texto = ocr.extract_text_from_pdf("dataset/ocr_tests/test2.pdf")
+    texto = ocr.extract_text_from_pdf("dataset/ocr_tests/contract.pdf")
     print(texto)

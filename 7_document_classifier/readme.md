@@ -8,7 +8,7 @@ cd frontend/
 
 npm run dev
 
-# Execute only backend
+# Execute only backend api
 
 First, active the .venv
 
@@ -25,6 +25,12 @@ python -m backend.services.build_dataset
 cd backend/
 
 python -m pytest
+
+# Execute only one test class
+
+cd backend/
+
+python -m pytest tests/test_ocr_extractor.py
 
 # To extract OCR, necessary install: 
 
