@@ -1,96 +1,123 @@
-from fastapi import APIRouter, File, Form, UploadFile, HTTPException, status
-import os, tempfile, json
+# backend/api/routes/upload.py
+from fastapi import APIRouter, File, Form, UploadFile, HTTPException, status, Request
+import os
+import tempfile
 from pathlib import Path
-from services.docx_parser import DocxParser
-from services.pdf_parser import PDFParser
 from services.logger import classification_logger, error_logger, app_logger
 from services.file_parser import parse_file
 
-from agent.embedder import Embedder
-from agent.vector_store import VectorStore
-from agent.prompt_engine import PromptEngine
+# Não fazemos mais imports de dataset aqui; usamos singletons no app.state
+# Agent / IA
+from agent.document_agent import DocumentAgent  # opcional, se já implementado
 
 router = APIRouter()
 
-# Carrega dataset na inicialização
-DATASET_FILE = Path(__file__).resolve().parent.parent.parent / "dataset" / "embeddings.json"
-vector_store = VectorStore()
-with open(DATASET_FILE, "r", encoding="utf-8") as f:
-    dataset = json.load(f)
-    for embedding, metadata in dataset:
-        # Normaliza o formato
-        if isinstance(embedding, list) and len(embedding) == 1 and isinstance(embedding[0], list):
-            embedding = embedding[0]  # remove nesting [[...]] → [...]
-        elif isinstance(embedding, float):
-            embedding = [embedding]
-
-        print("Embedding carregado:", type(embedding), len(embedding) if isinstance(embedding, list) else embedding)
-        vector_store.add(embedding, metadata)
-
-embedder = Embedder()
-
 # Safer file extension extraction
-def get_file_extension(filename):
-    """
-    Safely extract file extension, handling various filename formats
-    """
-    # Use os.path.splitext and ensure we get a lowercase extension
+def get_file_extension(filename: str) -> str:
     _, ext = os.path.splitext(filename)
     return ext.lower() if ext else ""
 
 @router.post("/upload")
 async def upload_file(
+    request: Request,
     name: str = Form(None),
     file: UploadFile = File(...)
 ):
-    try: 
-        file_extension = get_file_extension(file.filename)
+    # Acessa singletons inicializados no startup (main.py)
+    vector_store = request.app.state.vector_store
+    embedder = request.app.state.embedder
+    prompt_engine = request.app.state.prompt_engine
+    document_agent = getattr(request.app.state, "document_agent", None)  # opcional
 
-        # Log file upload attempt
-        app_logger.info(f"File upload attempt: {file.filename}")
+    file_extension = get_file_extension(file.filename)
+    app_logger.info(f"File upload attempt: {file.filename}")
 
-        # Check for supported file extensions first
-        if file_extension.lower() not in [".pdf", ".docx"]:
-            error_logger.warning(f"Unsupported file format: {file_extension}")
-            return {
-                "status": "error", 
-                "content": "Not supported format"
-            }
-        
+    # Validação inicial de extensão
+    if file_extension not in [".pdf", ".docx"]:
+        error_logger.warning(f"Unsupported file format: {file_extension}")
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                            detail="Unsupported file format. Only .pdf and .docx allowed")
+
+    tmp_path = None
+    try:
+        # Salva temporário com suffix
         with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as tmp:
-            tmp.write(await file.read())
+            content = await file.read()
+            tmp.write(content)
             tmp_path = tmp.name
 
-        # Extrai texto (com fallback para OCR se necessário)
+        # Extrai texto (parse_file deve aceitar string path)
         clean_text = parse_file(tmp_path)
 
-        os.remove(tmp_path)
+        if not isinstance(clean_text, str) or not clean_text.strip():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="Empty or unreadable file")
 
-        if not clean_text.strip():
-            return {"status": "error", "message": "Arquivo vazio ou não suportado"}
+        # Gera embedding (pode levantar erros - log e rethrow como 500)
+        try:
+            query_embedding = embedder.generate_embeddings(clean_text)
+        except Exception as e:
+            error_logger.exception("Error generating embedding")
+            raise HTTPException(status_code=500, detail="Error generating embedding")
 
-        # Embeddings e classificação
-        query_embedding = embedder.generate_embeddings(clean_text)
-        predicted_class, confidence, _ = vector_store.predict_class(query_embedding)
+        # Predição por vetor
+        predicted_class, confidence, _results = vector_store.predict_class(query_embedding)
+        if predicted_class is None or confidence is None:
+            # fallback: se vector_store estiver vazio, considera 'unknown'
+            predicted_class = "unknown"
+            confidence = 0.0
 
-        # Log classification process
-        classification_logger.info(f"Classifying document: {predicted_class}")
-        
-        # Extração com prompt específico
-        prompt_engine = PromptEngine()
-        extracted_data = prompt_engine.extract(predicted_class, clean_text)
+        classification_logger.info(f"Classifying document: {predicted_class} (conf={confidence:.4f})")
 
+        # Somente tenta extrair se a categoria for suportada pelo PromptEngine
+        extracted_data = {}
+        if predicted_class in prompt_engine.prompts:
+            try:
+                extracted_data = prompt_engine.extract(predicted_class, clean_text)
+            except Exception as e:
+                # Falha na extração: log e segue (não interrompe o upload)
+                error_logger.exception(f"Prompt extraction failed for class {predicted_class}: {e}")
+                extracted_data = {"error": "extraction_failed", "raw_error": str(e)}
+        else:
+            app_logger.info(f"No extractor for predicted class '{predicted_class}'; skipping extraction")
+
+        # Persiste via agent se disponível
+        storage_result = None
+        if document_agent:
+            try:
+                storage_result = document_agent.save({
+                    "title": file.filename,
+                    "type": predicted_class,
+                    "content": clean_text,
+                    "embedding": query_embedding,
+                    "classification": predicted_class,
+                    "confidence": float(confidence),
+                    "metadata": extracted_data
+                })
+            except Exception as e:
+                error_logger.exception(f"Failed to persist document: {e}")
+                storage_result = {"error": "persistence_failed", "detail": str(e)}
+
+        # Resposta
         return {
             "status": "success",
             "predicted_class": predicted_class,
-            "confidence": round(confidence, 4),
-            "extracted_data": extracted_data
+            "confidence": round(float(confidence), 4),
+            "extracted_data": extracted_data,
+            "storage_result": storage_result
         }
-    
+
+    except HTTPException:
+        # Re-raise HTTPException (já tratado)
+        raise
     except Exception as e:
-        # Comprehensive error logging
-        error_logger.exception(f"Error processing upload: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail="Internal processing error"
-        )
+        error_logger.exception(f"Error processing upload: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail="Internal processing error")
+    finally:
+        # Sempre tenta apagar o arquivo temporário, se existir
+        try:
+            if tmp_path and os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except Exception as e:
+            error_logger.exception(f"Failed to remove temp file {tmp_path}: {e}")

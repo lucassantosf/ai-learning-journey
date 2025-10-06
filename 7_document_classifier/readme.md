@@ -39,3 +39,10 @@ sudo apt-get update
 sudo apt-get install tesseract-ocr tesseract-ocr-por
 
 pip install pytesseract pdf2image
+
+
+# Create SqLite database 
+
+cd backend/
+
+python -m api.core.init_db
