@@ -1,7 +1,7 @@
 from typing import List, Tuple, Union
 import numpy as np
 from collections import defaultdict
-
+from storage.sqlite_store import SQLiteStore
 
 class VectorStore:
     """
@@ -10,8 +10,15 @@ class VectorStore:
     Here it's in-memory for prototype.
     """
 
-    def __init__(self):
-        self.vectors: List[Tuple[List[float], dict]] = []  # List of tuples (embedding, metadata)
+    def __init__(self, mode: str = "json"):
+        self.mode = mode
+        self.vectors: List[Tuple[List[float], dict]] = []
+        self.sqlite = SQLiteStore() if mode == "sqlite" else None
+
+        if self.mode == "sqlite":
+            print("💾 VectorStore in SQLite mode — lazy loading enabled")
+        else:
+            print("📄 VectorStore in JSON/in-memory mode")
 
     def add(self, embedding: Union[List[float], np.ndarray, float], metadata: dict):
         """
@@ -25,27 +32,32 @@ class VectorStore:
         elif not isinstance(embedding, list):
             raise TypeError(f"Invalid embedding: {type(embedding)}")
 
-        self.vectors.append((embedding, metadata))
+        if self.mode == "json":
+            self.vectors.append((embedding, metadata))
+        elif self.mode == "sqlite":
+            self.sqlite.save_vector(embedding, metadata)
+
+    def load_from_sqlite(self):
+        if self.sqlite:
+            self.vectors = self.sqlite.load_all()
+            print(f"📚 Loaded {len(self.vectors)} vectors from SQLite")
 
     @staticmethod
     def cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
-        a = np.array(vec1, dtype=float)
-        b = np.array(vec2, dtype=float)
+        a, b = np.array(vec1, dtype=float), np.array(vec2, dtype=float)
         if np.linalg.norm(a) == 0 or np.linalg.norm(b) == 0:
             return 0.0
         return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
 
     def search(self, query_embedding: List[float], top_k: int = 5) -> List[Tuple[dict, float]]:
-        """
-        Returns top_k most similar embeddings to query_embedding.
-        """
-        similarities: List[Tuple[dict, float]] = []
+        if self.mode == "sqlite" and not self.vectors:
+            self.load_from_sqlite()
 
+        similarities = []
         for vec, meta in self.vectors:
             sim = self.cosine_similarity(query_embedding, vec)
             similarities.append((meta, sim))
 
-        # Sort from most similar to least similar
         similarities.sort(key=lambda x: x[1], reverse=True)
         return similarities[:top_k]
 

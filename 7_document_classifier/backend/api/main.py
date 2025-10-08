@@ -5,7 +5,7 @@ from api.routes import health, upload
 from api.core.database import SessionLocal
 from sqlalchemy.orm import Session
 from pathlib import Path
-import json
+import json, os
 
 # Imports dos agents e rotas
 from agent.embedder import Embedder
@@ -36,25 +36,21 @@ api.include_router(upload.router)
 def startup_event():
     print("🚀 Iniciando aplicação e carregando recursos...")
 
-    # Embedder singleton
+    mode = os.getenv("VECTOR_STORE_MODE", "json").lower()
     api.state.embedder = Embedder()
-
-    # Vector store singleton
-    vs = VectorStore()
-    DATASET_FILE = Path(__file__).resolve().parent.parent / "dataset" / "embeddings.json"
-    if DATASET_FILE.exists():
-        with open(DATASET_FILE, "r", encoding="utf-8") as f:
-            dataset = json.load(f)
-            for embedding, metadata in dataset:
-                if isinstance(embedding, list) and len(embedding) == 1 and isinstance(embedding[0], list):
-                    embedding = embedding[0]
-                elif isinstance(embedding, float):
-                    embedding = [embedding]
-                vs.add(embedding, metadata)
-        print(f"✅ Dataset carregado: {len(dataset)} embeddings")
-    else:
-        print("⚠️ Nenhum dataset encontrado, prosseguindo vazio")
-
-    api.state.vector_store = vs
+    api.state.vector_store = VectorStore(mode=mode)
     api.state.prompt_engine = PromptEngine()
     api.state.document_agent = DocumentAgent()
+
+    if mode == "json":
+        DATASET_FILE = Path(__file__).resolve().parent.parent / "dataset" / "embeddings.json"
+        if DATASET_FILE.exists():
+            with open(DATASET_FILE, "r", encoding="utf-8") as f:
+                dataset = json.load(f)
+                for embedding, metadata in dataset:
+                    api.state.vector_store.add(embedding, metadata)
+            print(f"✅ Dataset JSON carregado com {len(dataset)} embeddings")
+        else:
+            print("⚠️ Nenhum dataset JSON encontrado.")
+    elif mode == "sqlite":
+        api.state.vector_store.load_from_sqlite()
