@@ -1,11 +1,7 @@
 import os
-import pytest
-from fastapi.testclient import TestClient
-from api.main import api
+import pytest 
 
-client = TestClient(api)
-
-def test_upload_resume():
+def test_upload_resume(client):
     # Path to test resume files
     resume_files = [
         os.path.join(os.path.dirname(__file__), '../dataset/resumes/resume1.pdf'),
@@ -31,7 +27,7 @@ def test_upload_resume():
         assert "confidence" in response_json
         assert response_json["confidence"] > 0.5  # Reasonable confidence threshold
 
-def test_upload_invoice():
+def test_upload_invoice(client):
     # Path to test invoice files
     invoice_files = [
         os.path.join(os.path.dirname(__file__), '../dataset/invoices/invoice1.pdf'),
@@ -57,7 +53,7 @@ def test_upload_invoice():
         assert "confidence" in response_json
         assert response_json["confidence"] > 0.5  # Reasonable confidence threshold
 
-def test_upload_contract():
+def test_upload_contract(client):
     # Path to test contract files
     contract_files = [
         os.path.join(os.path.dirname(__file__), '../dataset/contracts/contract1.pdf'),

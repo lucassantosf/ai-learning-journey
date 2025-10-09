@@ -35,8 +35,10 @@ async def upload_file(
     # Validação inicial de extensão
     if file_extension not in [".pdf", ".docx"]:
         error_logger.warning(f"Unsupported file format: {file_extension}")
-        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                            detail="Unsupported file format. Only .pdf and .docx allowed")
+        return {
+            "status": "error",
+            "content": "Not supported format"
+        }
 
     tmp_path = None
     try:

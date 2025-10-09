@@ -117,5 +117,5 @@ def test_search():
         print(f" - {meta['class_label']} | {meta['doc_id']} | Similaridade: {score:.4f}")
 
 if __name__ == "__main__":
-    # build_dataset()
-    test_search()
+    build_dataset()
+    # test_search()

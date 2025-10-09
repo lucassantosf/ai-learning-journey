@@ -4,8 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 
 from api.core.models import Base, Document, Metadata, Classification, Embedding
-
-
+ 
 class SQLiteStore:
     def __init__(self, db_path: str | Path = None):
         base_dir = Path(__file__).resolve().parent.parent
