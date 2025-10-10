@@ -106,3 +106,50 @@ class DocumentAgent:
             raise e
         finally:
             db.close()
+
+    def update_classification(self, document_id: int, correct_class: str, notes: str = None):
+        db = SessionLocal()
+        try:
+            doc = db.query(Document).filter(Document.id == document_id).first()
+            if not doc:
+                return {"status": "error", "message": "Documento não encontrado"}
+
+            # Atualiza classificação
+            cls = db.query(Classification).filter(Classification.document_id == document_id).first()
+            if cls:
+                cls.category = correct_class
+                cls.confidence = 1.0
+            else:
+                cls = Classification(document_id=doc.id, category=correct_class, confidence=1.0)
+                db.add(cls)
+
+            # Nota opcional
+            if notes:
+                meta = Metadata(document_id=doc.id, json_data={"feedback_notes": notes})
+                db.add(meta)
+
+            db.commit()
+            return {"status": "success", "document_id": document_id}
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    def get_document(self, document_id: int):
+        db = SessionLocal()
+        try:
+            doc = db.query(Document).filter(Document.id == document_id).first()
+            if not doc:
+                return None
+            emb = db.query(Embedding).filter(Embedding.document_id == document_id).first()
+            # retorna dict com embedding separado
+            return {
+                "id": doc.id,
+                "title": doc.title,
+                "type": doc.type,
+                "content": doc.content,
+                "embedding": emb.vector if emb else None
+            }
+        finally:
+            db.close()

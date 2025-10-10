@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from api.core.config import settings
-from api.routes import health, upload
+from api.routes import health, upload, feedback
 from api.core.database import SessionLocal
 from sqlalchemy.orm import Session
 from pathlib import Path
@@ -12,7 +12,6 @@ from agent.embedder import Embedder
 from agent.vector_store import VectorStore
 from agent.prompt_engine import PromptEngine
 from agent.document_agent import DocumentAgent
-from api.routes import upload
 
 api = FastAPI(
     title=settings.PROJECT_NAME,
@@ -31,6 +30,7 @@ api.add_middleware(
 # Rotas
 api.include_router(health.router)
 api.include_router(upload.router)
+api.include_router(feedback.router)
 
 @api.on_event("startup")
 def startup_event():
