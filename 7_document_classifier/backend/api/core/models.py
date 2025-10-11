@@ -17,7 +17,6 @@ class Document(Base):
     embedding = relationship("Embedding", back_populates="document", uselist=False)
     classification = relationship("Classification", back_populates="document", uselist=False)
 
-
 class Metadata(Base):
     __tablename__ = "metadata"
 
@@ -26,7 +25,6 @@ class Metadata(Base):
     json_data = Column(JSON)
 
     document = relationship("Document", back_populates="document_metadata")  # ✅ atualizado
-
 
 class Embedding(Base):
     __tablename__ = "embeddings"
@@ -37,7 +35,6 @@ class Embedding(Base):
 
     document = relationship("Document", back_populates="embedding")
 
-
 class Classification(Base):
     __tablename__ = "classifications"
 
@@ -47,3 +44,11 @@ class Classification(Base):
     confidence = Column(Float)
 
     document = relationship("Document", back_populates="classification")
+
+class Centroid(Base):
+    __tablename__ = "centroids"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    class_label = Column(String, unique=True, nullable=False)
+    vector = Column(JSON, nullable=False)
+    updated_at = Column(Float, nullable=False)

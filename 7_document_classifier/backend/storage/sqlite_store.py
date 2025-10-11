@@ -69,18 +69,31 @@ class SQLiteStore:
         session = self.SessionLocal()
         results = []
         try:
-            docs = session.query(Document).all()
-            for doc in docs:
-                embedding = (
-                    doc.embedding.vector if doc.embedding else []
-                )
-                meta = {
+            from api.core.models import Document, Embedding, Classification, Metadata
+
+            query = (
+                session.query(Document, Embedding, Classification, Metadata)
+                .join(Embedding, Embedding.document_id == Document.id)
+                .join(Classification, Classification.document_id == Document.id)
+                .join(Metadata, Metadata.document_id == Document.id)
+                .all()
+            )
+
+            for doc, emb, cls, meta in query:
+                embedding = emb.vector
+                metadata = {
                     "doc_id": doc.title,
-                    "class_label": doc.type,
-                    "source": doc.document_metadata.json_data.get("source") if doc.document_metadata else None,
+                    "class_label": cls.category,
+                    "source": meta.json_data.get("source") if meta and meta.json_data else None,
+                    "confidence": cls.confidence,
                 }
-                results.append((embedding, meta))
+                results.append((embedding, metadata))
+
+            print(f"📚 Carregados {len(results)} vetores do SQLite.")
+            return results
+
+        except Exception as e:
+            print(f"❌ Erro ao carregar vetores: {e}")
+            return []
         finally:
             session.close()
-
-        return results

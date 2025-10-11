@@ -1,9 +1,7 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.core.config import settings
-from api.routes import health, upload, feedback
-from api.core.database import SessionLocal
-from sqlalchemy.orm import Session
+from api.routes import health, upload, feedback, retrain
 from pathlib import Path
 import json, os
 
@@ -31,6 +29,7 @@ api.add_middleware(
 api.include_router(health.router)
 api.include_router(upload.router)
 api.include_router(feedback.router)
+api.include_router(retrain.router)
 
 @api.on_event("startup")
 def startup_event():
