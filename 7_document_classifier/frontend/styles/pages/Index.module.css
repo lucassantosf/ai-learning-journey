@@ -34,7 +34,7 @@
   transform: scale(1.03);
 }
 
-.healthCheckLink {
+.healthCheckLink, .documentHistoryLink {
   text-decoration: none;
   color: inherit;
   display: block;

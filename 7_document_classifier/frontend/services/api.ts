@@ -3,6 +3,13 @@ import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
 // Configuration for API base settings
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
+export interface DocumentHistoryItem {
+  id: string;
+  filename: string;
+  current_category: string;
+  upload_date: string;
+}
+
 class ApiService {
   private axiosInstance: AxiosInstance;
 
@@ -32,7 +39,7 @@ class ApiService {
   }
 
   // Generic method for GET requests
-  async get<T>(url: string, params?: any): Promise<T> {
+  async get<T>(url: string, params?: Record<string, unknown>): Promise<T> {
     try {
       const response: AxiosResponse<T> = await this.axiosInstance.get(url, { params });
       return response.data;
@@ -42,7 +49,7 @@ class ApiService {
   }
 
   // Generic method for POST requests
-  async post<T>(url: string, data: any, config = {}): Promise<T> {
+  async post<T>(url: string, data: unknown, config: Record<string, unknown> = {}): Promise<T> {
     try {
       const response: AxiosResponse<T> = await this.axiosInstance.post(url, data, config);
       return response.data;
@@ -52,7 +59,7 @@ class ApiService {
   }
 
   // Specific method for file upload
-  async uploadDocument(file: File): Promise<any> {
+  async uploadDocument(file: File): Promise<unknown> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('name', file.name);
@@ -65,8 +72,21 @@ class ApiService {
   }
 
   // Health check method
-  async healthCheck(): Promise<any> {
+  async healthCheck(): Promise<unknown> {
     return this.get('/health');
+  }
+
+  // Document history methods
+  async getDocumentHistory(): Promise<DocumentHistoryItem[]> {
+    return this.get<DocumentHistoryItem[]>('/documents/history');
+  }
+
+  async updateDocumentCategory(documentId: string, newCategory: string): Promise<void> {
+    return this.post(`/documents/${documentId}/category`, { category: newCategory });
+  }
+
+  async retrainModel(): Promise<void> {
+    return this.post('/retrain', {});
   }
 
   // Error handling method
@@ -75,8 +95,8 @@ class ApiService {
       // The request was made and the server responded with a status code
       console.error('API Error Response:', error.response.data);
       throw new Error(
-        error.response.data?.detail || 
-        error.response.data?.message || 
+        (error.response.data as { detail?: string; message?: string })?.detail || 
+        (error.response.data as { detail?: string; message?: string })?.message || 
         'An unexpected error occurred'
       );
     } else if (error.request) {

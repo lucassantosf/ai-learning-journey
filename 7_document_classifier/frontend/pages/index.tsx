@@ -27,6 +27,16 @@ export default function Home() {
               </div>
             </Link>
           </div>
+
+          <div className={styles.actionCard}>
+            <Link href="/document-history" className={styles.documentHistoryLink}>
+              <div className={styles.cardContent}>
+                <span>📄</span>
+                <h3>Document History</h3>
+                <p>View and manage uploaded documents</p>
+              </div>
+            </Link>
+          </div>
         </div>
 
         {/* Linha 2 - só aparece depois do upload */}

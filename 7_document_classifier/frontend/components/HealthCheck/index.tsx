@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import styles from "../../styles/components/HealthCheck.module.css";
 import { apiService } from "../../services/api";
-import Link from "next/link";
+import BackHomeButton from "../BackHomeButton";
 
 export default function HealthChecker() {
   const [health, setHealth] = useState<{ status?: number; error?: string } | null>(null);
@@ -34,9 +34,7 @@ export default function HealthChecker() {
         </div>
       )}
 
-      <Link href="/" className={styles.link}>
-        Back to Home
-      </Link>
+      <BackHomeButton />
     </div>
   );
 }

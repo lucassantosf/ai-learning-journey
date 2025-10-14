@@ -1,0 +1,183 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f4f6f9;
+}
+
+.main {
+  flex-grow: 1;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pageHeader {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: 1000px;
+  margin-bottom: 1rem;
+}
+
+.backButton {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  width: 45%;
+  transition: transform 0.3s ease;
+  text-align: center;
+}
+
+.backButton:hover {
+  transform: scale(1.03);
+}
+
+.backButtonContent {
+  text-align: center;
+}
+
+.backButtonContent span {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.backButtonContent h3 {
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+}
+
+.backButtonContent p {
+  color: #7f8c8d;
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-size: 1.5rem;
+  color: #666;
+}
+
+.documentList {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-top: 1rem;
+  width: 100%;
+  max-width: 1000px;
+}
+
+.documentItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.documentItem:last-child {
+  border-bottom: none;
+}
+
+.documentInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.filename {
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.uploadDate {
+  color: #666;
+  font-size: 0.8rem;
+}
+
+.documentActions {
+  display: flex;
+  align-items: center;
+}
+
+.categorySelect {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-left: 1rem;
+}
+
+.retrainingContainer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.retrainButton {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.retrainButton:hover {
+  background-color: #0056b3;
+}
+
+.retrainingButton {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  cursor: not-allowed;
+}
+
+.retrainedSuccessButton {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  cursor: not-allowed;
+}
+
+.retrainErrorButton {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  cursor: not-allowed;
+}
+
+.errorBanner {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  text-align: center;
+  width: 100%;
+  max-width: 1000px;
+}
+
+.emptyState {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  text-align: center;
+  color: #666;
+  width: 100%;
+  max-width: 1000px;
+}
