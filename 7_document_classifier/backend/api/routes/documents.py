@@ -34,31 +34,3 @@ def get_document_history(db: Session = Depends(get_db)):
         return document_history
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving document history: {str(e)}")
-
-@router.post("/documents/{document_id}/category")
-def update_document_category(
-    document_id: str, 
-    category_data: Dict[str, str], 
-    db: Session = Depends(get_db)
-):
-    try:
-        # Find the document
-        document = db.query(Document).filter(Document.id == document_id).first()
-        
-        if not document:
-            raise HTTPException(status_code=404, detail="Document not found")
-        
-        # Update the category
-        # Find or create a classification for the document
-        classification = document.classification
-        if not classification:
-            classification = Classification(document_id=document.id)
-            db.add(classification)
-        
-        classification.category = category_data.get('category')
-        db.commit()
-        
-        return {"message": "Category updated successfully"}
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error updating document category: {str(e)}")

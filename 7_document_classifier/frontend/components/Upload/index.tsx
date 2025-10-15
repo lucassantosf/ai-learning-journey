@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import styles from "../../styles/components/Upload.module.css";
 import { apiService } from '../../services/api';  
 
@@ -10,6 +10,7 @@ interface UploadProps {
 export default function Upload({ onUploadComplete }: UploadProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [lastUploadTime, setLastUploadTime] = useState(0);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -17,12 +18,21 @@ export default function Upload({ onUploadComplete }: UploadProps) {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
+    // Prevent multiple uploads within 2 seconds
+    const currentTime = Date.now();
+    if (currentTime - lastUploadTime < 2000) {
+      console.warn('Upload blocked: Too frequent');
+      return;
+    }
+
     if (!file) {
       alert('Please select a file first');
+      return;
     }
 
     setIsLoading(true);
+    setLastUploadTime(currentTime);
 
     try {
       const result = await apiService.uploadDocument(file);
@@ -35,7 +45,7 @@ export default function Upload({ onUploadComplete }: UploadProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [file, lastUploadTime, onUploadComplete]);
  
   return (
     <div className={styles.container}>

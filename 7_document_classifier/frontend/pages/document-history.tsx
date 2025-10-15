@@ -18,6 +18,13 @@ const DocumentHistoryPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retrainingStatus, setRetrainingStatus] = useState<'idle' | 'training' | 'success' | 'error'>('idle');
+  const [confirmationModal, setConfirmationModal] = useState<{
+    show: boolean;
+    documentId?: string;
+    currentCategory?: string;
+    newCategory?: string;
+    notes?: string;
+  }>({ show: false });
 
   useEffect(() => {
     fetchDocumentHistory();
@@ -36,14 +43,51 @@ const DocumentHistoryPage: React.FC = () => {
     }
   };
 
-  const handleCategoryChange = async (documentId: string, newCategory: string) => {
+  const handleCategoryChangeRequest = (documentId: string, newCategory: string) => {
+    // Open confirmation modal
+    setConfirmationModal({
+      show: true,
+      documentId,
+      currentCategory: documents.find(doc => doc.id === documentId)?.current_category,
+      newCategory,
+      notes: '' // Initialize notes as empty string
+    });
+  };
+
+  const handleCategoryChange = async () => {
+    if (!confirmationModal.documentId || !confirmationModal.newCategory) return;
+
+    // Validate notes have at least 5 characters
+    if (!confirmationModal.notes || confirmationModal.notes.trim().length < 5) {
+      setError('Justification must be at least 5 characters long');
+      return;
+    }
+
     try {
-      await apiService.updateDocumentCategory(documentId, newCategory);
+      await apiService.sendDocumentFeedback(
+        confirmationModal.documentId, 
+        confirmationModal.newCategory,
+        confirmationModal.notes
+      );
       // Refresh the document history after updating
       fetchDocumentHistory();
+      // Close the modal
+      setConfirmationModal({ show: false });
     } catch (err) {
       setError('Failed to update document category');
+      setConfirmationModal({ show: false });
     }
+  };
+
+  const closeConfirmationModal = () => {
+    setConfirmationModal({ show: false });
+  };
+
+  const handleNotesChange = (notes: string) => {
+    setConfirmationModal(prev => ({
+      ...prev,
+      notes
+    }));
   };
 
   const handleRetrain = async () => {
@@ -121,7 +165,7 @@ const DocumentHistoryPage: React.FC = () => {
                 <div className={styles.documentActions}>
                   <select 
                     value={doc.current_category} 
-                    onChange={(e) => handleCategoryChange(doc.id, e.target.value)}
+                    onChange={(e) => handleCategoryChangeRequest(doc.id, e.target.value)}
                     className={styles.categorySelect}
                   >
                     {documentCategories.map((category) => (
@@ -133,6 +177,43 @@ const DocumentHistoryPage: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Confirmation Modal */}
+        {confirmationModal.show && (
+          <div className={styles.modalOverlay}>
+            <div className={styles.modalContent}>
+              <h2>Confirm Category Change</h2>
+              <p>
+                Are you sure you want to change the category of this document 
+                from <strong>{confirmationModal.currentCategory}</strong> 
+                to <strong>{confirmationModal.newCategory}</strong>?
+              </p>
+              <textarea 
+                id="justification"
+                className={styles.modalNotesTextarea}
+                value={confirmationModal.notes || ''}
+                onChange={(e) => handleNotesChange(e.target.value)}
+                placeholder="Provide justification for changing the category (Required)"
+                required
+              />
+              <div className={styles.modalButtons}>
+                <button 
+                  onClick={handleCategoryChange} 
+                  className={`${styles.confirmButton} ${confirmationModal.notes && confirmationModal.notes.trim().length >= 5 ? styles.enabled : ''}`}
+                  disabled={!confirmationModal.notes || confirmationModal.notes.trim().length < 5}
+                >
+                  {confirmationModal.notes && confirmationModal.notes.trim().length >= 5 ? '✓ Confirm' : 'Confirm'}
+                </button>
+                <button 
+                  onClick={closeConfirmationModal} 
+                  className={styles.cancelButton}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </main>

@@ -81,8 +81,19 @@ class ApiService {
     return this.get<DocumentHistoryItem[]>('/documents/history');
   }
 
-  async updateDocumentCategory(documentId: string, newCategory: string): Promise<void> {
-    return this.post(`/documents/${documentId}/category`, { category: newCategory });
+  async sendDocumentFeedback(documentId: string, correctClass: string, notes: string): Promise<void> {
+    // Validate documentId is a valid integer
+    const parsedId = parseInt(documentId, 10);
+    if (isNaN(parsedId) || parsedId.toString() !== documentId) {
+      throw new Error('Invalid document ID');
+    }
+
+    return this.post('/feedback', { 
+      document_id: parsedId, 
+      correct_class: correctClass, 
+      notes: notes,
+      update_vector_store: true
+    });
   }
 
   async retrainModel(): Promise<void> {
