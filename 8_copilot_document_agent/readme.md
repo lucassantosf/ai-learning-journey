@@ -4,6 +4,15 @@ An intelligent AI copilot that understands, retrieves, and reasons over professi
 
 ---
 
+## Executing Frontend
+
+cd /frontend
+
+npm run dev
+
+## Executing Backend
+
+
 ## ✅ To Do List
 
 ### 🧩 **Week 1 – Fundamentals & RAG Base**
@@ -11,18 +20,6 @@ An intelligent AI copilot that understands, retrieves, and reasons over professi
 Set up the core project structure, environment, and basic document ingestion/indexing pipeline.
 
 #### Tasks
-- [ ] **Create GitHub repository**
-  - [ ] Name: `copilot-document-agent`
-  - [ ] Add `.gitignore`, `README.md`, and folder structure:
-    ```
-    /src
-      /ingestion
-      /retrieval
-      /agents
-      /tools
-      /interfaces
-      /data
-    ```
 - [ ] **Set up Python environment**
   - [ ] Create virtual env (`venv`) and `requirements.txt`
   - [ ] Dependencies: `llama-index`, `openai`, `faiss-cpu`, `python-dotenv`, `pdfplumber`, `docx2txt`, `rich`

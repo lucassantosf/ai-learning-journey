@@ -1,0 +1,22 @@
+# --- Núcleo ---
+python-dotenv==1.0.1      # Carrega variáveis do .env
+rich==13.7.1              # Logs coloridos no console
+
+# --- API ---
+fastapi==0.115.0          # Framework para API
+uvicorn==0.30.1           # Servidor ASGI para rodar FastAPI
+
+# --- Processamento de documentos ---
+pdfplumber==0.10.4        # Leitura e extração de texto de PDFs
+docx2txt==0.8             # Leitura de arquivos DOCX
+
+# --- IA / Embeddings ---
+openai==1.43.0            # Cliente oficial OpenAI para gerar embeddings
+llama-index==0.11.6       # Facilita manipulação de textos e vetores (base futura para o agente)
+
+# --- Vetor e Similaridade ---
+faiss-cpu==1.8.0.post1    # Banco vetorial local para indexar embeddings
+
+# --- Tipagem / utilidades ---
+pydantic==2.8.2           # Validação de dados (para schemas)
+typing-extensions==4.12.2 # Garantir compatibilidade de tipos opcionais

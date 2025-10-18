@@ -1,10 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import HealthCheck from '../components/HealthCheck';
 
 const Home: React.FC = () => {
   return (
     <div className="home-container">
+
       <h1 className="home-title">Copilot Document Agent</h1>
+      
+      <HealthCheck />
       
       <div className="home-navigation">
         <Link to="/upload" className="nav-card">
