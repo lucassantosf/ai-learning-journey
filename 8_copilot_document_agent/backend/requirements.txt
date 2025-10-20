@@ -20,3 +20,8 @@ faiss-cpu==1.8.0.post1    # Banco vetorial local para indexar embeddings
 # --- Tipagem / utilidades ---
 pydantic==2.8.2           # Validação de dados (para schemas)
 typing-extensions==4.12.2 # Garantir compatibilidade de tipos opcionais
+
+# Tests 
+pytest
+reportlab 
+python-docx

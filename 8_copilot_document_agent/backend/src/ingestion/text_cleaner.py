@@ -1,7 +1,13 @@
+import re
+from typing import List
 from src.core.logger import log_info
 
 class TextCleaner:
-    def clean(self, text: str) -> str:
+    def clean(self, text: str) -> List[str]:
         log_info("Limpando texto...")
-        # TODO: Implementar limpeza real (remover espaços, quebras, etc.)
-        return text.strip()
+        cleaned = []
+        for text in texts:
+            text = re.sub(r'\s+', ' ', text).strip()
+            text = re.sub(r'[^\x00-\x7F]+', '', text)  # remove caracteres especiais
+            cleaned.append(text)
+        return cleaned

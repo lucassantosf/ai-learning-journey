@@ -12,6 +12,21 @@ npm run dev
 
 ## Executing Backend
 
+cd /backend
+
+uvicorn main:app --host 0.0.0.0 --port 8000
+
+## Executing Backend Tests
+
+cd /backend
+
+python -m pytest
+
+## Executing unique Backend Class Test
+
+cd /backend
+
+python -m pytest tests/test_ocr_extractor.py
 
 ## ✅ To Do List
 
@@ -20,9 +35,9 @@ npm run dev
 Set up the core project structure, environment, and basic document ingestion/indexing pipeline.
 
 #### Tasks
-- [ ] **Set up Python environment**
-  - [ ] Create virtual env (`venv`) and `requirements.txt`
-  - [ ] Dependencies: `llama-index`, `openai`, `faiss-cpu`, `python-dotenv`, `pdfplumber`, `docx2txt`, `rich`
+- [*] **Set up Python environment**
+  - [*] Create virtual env (`venv`) and `requirements.txt`
+  - [*] Dependencies: `llama-index`, `openai`, `faiss-cpu`, `python-dotenv`, `pdfplumber`, `docx2txt`, `rich`
 - [ ] **Document ingestion module**
   - [ ] Implement PDF parsing (`pdfplumber`)
   - [ ] Implement DOCX parsing (`docx2txt`)

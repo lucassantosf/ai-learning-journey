@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
-from src.core.models import Document
+from typing import List
 
 class DocumentParser(ABC):
+    """Interface base para todos os parsers de documentos."""
+
     @abstractmethod
-    def parse(self, file_path: str) -> Document:
-        """Extrai texto e metadados de um arquivo e retorna um Document"""
+    def parse(self, file_path: str) -> List[str]:
+        """Extrai o texto de um documento e retorna uma lista de páginas ou seções."""
         pass
