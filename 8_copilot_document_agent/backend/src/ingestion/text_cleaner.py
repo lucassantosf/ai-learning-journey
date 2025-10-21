@@ -3,7 +3,7 @@ from typing import List
 from src.core.logger import log_info
 
 class TextCleaner:
-    def clean(self, text: str) -> List[str]:
+    def clean(self, texts: List[str]) -> List[str]:
         log_info("Limpando texto...")
         cleaned = []
         for text in texts:

@@ -11,7 +11,13 @@ class EmbeddingGenerator:
     """Gera embeddings usando a API da OpenAI."""
 
     def __init__(self, model: str = "text-embedding-3-small"):
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        # Simplified client initialization
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OpenAI API key not found in environment variables")
+        
+        # Use minimal initialization to avoid unexpected arguments
+        self.client = OpenAI(api_key=api_key)
         self.model = model
 
     def generate(self, texts: List[str]) -> List[List[float]]:
