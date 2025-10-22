@@ -38,12 +38,12 @@ Set up the core project structure, environment, and basic document ingestion/ind
 - [*] **Set up Python environment**
   - [*] Create virtual env (`venv`) and `requirements.txt`
   - [*] Dependencies: `llama-index`, `openai`, `faiss-cpu`, `python-dotenv`, `pdfplumber`, `docx2txt`, `rich`
-- [ ] **Document ingestion module**
-  - [ ] Implement PDF parsing (`pdfplumber`)
-  - [ ] Implement DOCX parsing (`docx2txt`)
-  - [ ] Extract clean text and basic metadata (title, pages, etc.)
+- [*] **Document ingestion module**
+  - [*] Implement PDF parsing (`pdfplumber`)
+  - [*] Implement DOCX parsing (`docx2txt`)
+  - [*] Extract clean text and basic metadata (title, pages, etc.)
 - [ ] **Local vector database**
-  - [ ] Generate embeddings (`text-embedding-3-large`)
+  - [*] Generate embeddings (`text-embedding-3-large`)
   - [ ] Store vectors in FAISS with metadata
 - [ ] **Initial API with FastAPI**
   - [ ] Endpoint: `/upload`

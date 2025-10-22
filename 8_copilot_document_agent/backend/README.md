@@ -2,17 +2,52 @@
 # 🔍 Visão geral das classes principais e responsabilidades
 
 /backend
-  /src
-    /core
-    /ingestion
-    /retrieval
-    /agents
-    /tools
-    /interfaces
-    /data
-  main.py
-  requirements.txt
-  .env
+├── main.py
+├── requirements.txt
+├── .env
+└── src
+    ├── __init__.py
+    ├── agents
+    │   └── __init__.py
+    ├── core
+    │   ├── __init__.py
+    │   ├── config.py
+    │   ├── logger.py
+    │   └── models.py
+    ├── data
+    │   ├── __init__.py
+    │   └── embedding.py
+    ├── ingestion
+    │   ├── __init__.py
+    │   ├── chunker.py
+    │   ├── docx_parser.py
+    │   ├── embedding_generator.py
+    │   ├── ingestion_pipeline.py
+    │   ├── parser_base.py
+    │   └── text_cleaner.py
+    ├── interfaces
+    │   ├── __init__.py
+    │   └── api_controller.py
+    ├── retrieval
+    │   ├── __init__.py
+    │   └── faiss_vector_store.py
+    ├── tests
+    │   ├── __init__.py
+    │   ├── fixtures
+    │   │   ├── __init__.py
+    │   │   ├── test_document.docx
+    │   │   └── test_document.pdf
+    │   └── ingestion
+    │       ├── __init__.py
+    │       ├── test_chunker.py
+    │       ├── test_document_parser.py
+    │       ├── test_docx_parser.py
+    │       ├── test_embedding_generator.py
+    │       ├── test_ingestion_pipeline.py
+    │       ├── test_pdf_parser.py
+    │       └── test_text_cleaner.py
+    └── tools
+        └── __init__.py
 
 # 🔄 Fluxo geral entre classes
 
