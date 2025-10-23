@@ -1,57 +1,30 @@
+
 import faiss
 import numpy as np
-import os
-from typing import List, Tuple
-
+from typing import List, Optional
+from src.core.logger import log_info
 
 class FaissVectorStore:
-    """
-    Classe responsável por armazenar, buscar e persistir embeddings utilizando FAISS.
-    """
+    """FAISS index simples com armazenamento de metadados."""
 
-    def __init__(self, path: str = "faiss_index.bin", embedding_dim: int = 1536):
-        self.path = path
+    def __init__(self, embedding_dim: int = 1536):
         self.embedding_dim = embedding_dim
+        self.index = faiss.IndexFlatL2(embedding_dim)
+        self.metadata: List[dict] = []
 
-        # Se o arquivo já existe, carrega; senão, cria um novo índice
-        if os.path.exists(self.path):
-            self.index = faiss.read_index(self.path)
-        else:
-            self.index = faiss.IndexFlatL2(self.embedding_dim)
+    def add_embeddings(self, vectors: List[List[float]], metadatas: Optional[List[dict]] = None):
+        if not vectors:
+            return
+        array = np.array(vectors, dtype="float32")
+        self.index.add(array)
+        if metadatas:
+            self.metadata.extend(metadatas)
+        log_info(f"✅ Adicionados {len(vectors)} vetores ao FAISS.")
 
-    def add_embeddings(self, vectors: List[List[float]]):
-        """Adiciona embeddings ao índice."""
-        np_vectors = np.array(vectors).astype("float32")
-        self.index.add(np_vectors)
-
-    def count(self) -> int:
-        """Retorna o número de vetores armazenados."""
-        return self.index.ntotal
-
-    def search(self, query_vector: List[float], k: int = 5) -> Tuple[np.ndarray, np.ndarray]:
-        """Realiza busca no índice FAISS."""
-        np_query = np.array([query_vector]).astype("float32")
-        distances, indices = self.index.search(np_query, k)
-        return distances, indices
-
-    def save(self):
-        """Salva o índice FAISS no caminho especificado."""
-        faiss.write_index(self.index, self.path)
-
-    def load(self):
-        """Carrega o índice FAISS do disco."""
-        if os.path.exists(self.path):
-            self.index = faiss.read_index(self.path)
-        else:
-            raise FileNotFoundError(f"O índice {self.path} não foi encontrado.")
-
-    def reconstruct(self, id: int) -> np.ndarray:
-        """Reconstrói o vetor armazenado em um ID específico."""
-        return self.index.reconstruct(id)
-
-    def get_stats(self) -> dict:
-        """Retorna informações básicas do índice FAISS."""
-        return {
-            "total_vectors": self.index.ntotal,
-            "dimension": self.embedding_dim
-        }
+    def search(self, query_vector: List[float], top_k: int = 5):
+        D, I = self.index.search(np.array([query_vector], dtype="float32"), top_k)
+        results = []
+        for i, score in zip(I[0], D[0]):
+            meta = self.metadata[i] if i < len(self.metadata) else {}
+            results.append({"score": float(score), "metadata": meta})
+        return results

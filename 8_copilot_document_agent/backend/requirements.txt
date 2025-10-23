@@ -11,7 +11,7 @@ pdfplumber==0.10.4        # Leitura e extração de texto de PDFs
 docx2txt==0.8             # Leitura de arquivos DOCX
 
 # --- IA / Embeddings ---
-openai==1.43.0            # Cliente oficial OpenAI para gerar embeddings
+openai==1.79.0            # Cliente oficial OpenAI para gerar embeddings
 llama-index==0.11.6       # Facilita manipulação de textos e vetores (base futura para o agente)
 
 # --- Vetor e Similaridade ---
