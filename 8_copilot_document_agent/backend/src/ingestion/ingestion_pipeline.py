@@ -63,7 +63,9 @@ class IngestionPipeline:
         ]
 
         # 6️⃣ Indexar no FAISS
+        log_info("💾 Adicionando embeddings ao vetor store FAISS...")
         self.vector_store.add_embeddings(vectors, metadatas)
+        log_success("✅ Embeddings adicionados ao FAISS com sucesso!")
 
         log_success("✅ Documento processado e indexado com sucesso!")
 

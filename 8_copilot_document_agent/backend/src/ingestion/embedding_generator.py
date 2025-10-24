@@ -3,13 +3,24 @@ import os
 from openai import OpenAI
 from src.core.logger import log_info
 from dotenv import load_dotenv
+
 load_dotenv()
 
 class EmbeddingGenerator:
     """Gera embeddings usando a API da OpenAI."""
 
-    def __init__(self, model: str = "text-embedding-3-large"):
-        self._client: Optional[OpenAI] = None
+    def __init__(self, model: str = "text-embedding-3-small"):
+        # Explicitly check for API key and raise ValueError if not present
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OpenAI API key not found")
+        
+        # Explicitly create OpenAI client
+        try:
+            self._client = OpenAI()
+        except Exception as e:
+            raise ValueError(f"Failed to initialize OpenAI client: {e}")
+        
         self.model = model
 
     @property
@@ -31,17 +42,21 @@ class EmbeddingGenerator:
             log_info("⚠️ OpenAI client não inicializado. Gerando embeddings falsos para teste.")
             # retorna embeddings dummy do mesmo tamanho que texto
             return [[0.0]*1536 for _ in texts]
+        
+        if not texts:  
+            raise ValueError("No texts provided for embedding")
 
         log_info("Gerando embeddings com OpenAI...")
-        embeddings: List[List[float]] = []
-        for text in texts:
-            try:
-                response = self.client.embeddings.create(
+        
+        try:
+            embeddings: List[List[float]] = []
+            for text in texts:
+                response = self._client.embeddings.create(
                     input=text,
                     model=self.model
                 )
                 embeddings.append(response.data[0].embedding)
-            except Exception as e:
-                log_info(f"❌ Erro ao gerar embedding: {e}")
-                embeddings.append([0.0]*1536)
-        return embeddings
+            return embeddings
+        except Exception as e:
+            # Ensure any API errors are properly raised
+            raise Exception(f"Failed to generate embeddings: {str(e)}")

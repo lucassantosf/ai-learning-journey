@@ -4,12 +4,12 @@
 Here's the updated backend file tree for you to copy:
 
 /backend
-├── main.py
-├── requirements.txt
 ├── .env
 ├── .env.example
+├── main.py
 ├── pytest.ini
 ├── README.md
+├── requirements.txt
 └── src
     ├── __init__.py
     ├── agents

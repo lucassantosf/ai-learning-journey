@@ -16,6 +16,15 @@ class FaissVectorStore:
         if not vectors:
             return
         array = np.array(vectors, dtype="float32")
+        
+        if len(array.shape) != 2:
+            log_info(f"❌ Vetores malformados: shape={array.shape}. Verifique dimensões inconsistentes.")
+            raise ValueError(f"Vetores malformados: shape={array.shape}")
+
+        if array.shape[1] != self.embedding_dim:
+            log_info(f"❌ Dimensão incorreta dos embeddings! Esperado {self.embedding_dim}, recebido {array.shape[1]}")
+            raise ValueError(f"Dimensão incorreta dos embeddings! Esperado {self.embedding_dim}, recebido {array.shape[1]}")
+
         self.index.add(array)
         if metadatas:
             self.metadata.extend(metadatas)

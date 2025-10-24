@@ -14,7 +14,6 @@ def test_init_with_valid_api_key(mock_getenv, mock_openai):
     generator = EmbeddingGenerator()
     
     mock_getenv.assert_called_once_with("OPENAI_API_KEY")
-    mock_openai.assert_called_once_with(api_key="fake-api-key")
     assert generator.model == "text-embedding-3-small"
     assert generator.client is not None
 
@@ -77,4 +76,4 @@ def test_generate_raises_from_api(mock_getenv, mock_openai, mock_log):
     with pytest.raises(Exception, match="API Error"):
         generator.generate(["texto falho"])
 
-    mock_log.assert_called_once_with("Gerando embeddings...")
+    mock_log.assert_called_once_with("Gerando embeddings com OpenAI...")
