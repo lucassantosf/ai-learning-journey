@@ -24,12 +24,12 @@ class IngestionPipeline:
     def process(self, file_path: str) -> Dict[str, Any]:
         log_info(f"🚀 Iniciando pipeline de ingestão para: {file_path}")
 
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"Arquivo não encontrado: {file_path}")
-
         ext = os.path.splitext(file_path)[1].lower()
         if ext not in self.parsers:
             raise ValueError(f"Formato de arquivo não suportado: {ext}")
+
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Arquivo não encontrado: {file_path}")
 
         parser = self.parsers[ext]
         log_info(f"📄 Usando parser: {parser.__class__.__name__}")

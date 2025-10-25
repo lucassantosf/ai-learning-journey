@@ -49,7 +49,7 @@ def test_generate_embeddings(mock_getenv, mock_openai, mock_log):
     result = generator.generate(["texto 1", "texto 2"])
 
     # Verificações
-    mock_log.assert_called_once_with("Gerando embeddings...")
+    mock_log.assert_called_once_with("Gerando embeddings com OpenAI...")
     assert isinstance(result, list)
     assert all(isinstance(vec, list) for vec in result)
     assert result == [[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]]
