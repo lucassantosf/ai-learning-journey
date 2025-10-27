@@ -13,7 +13,8 @@ Here's the updated backend file tree for you to copy:
 └── src
     ├── __init__.py
     ├── agents
-    │   └── __init__.py
+    │   ├── __init__.py
+    │   └── rag_agent.py
     ├── core
     │   ├── __init__.py
     │   ├── config.py
@@ -37,8 +38,12 @@ Here's the updated backend file tree for you to copy:
     ├── retrieval
     │   ├── __init__.py
     │   └── faiss_vector_store.py
+    │   └── retriever.py
     ├── tests
     │   ├── __init__.py
+    │   ├── agents
+    │   │   ├── __init__.py
+    │   │   └── test_rag_agent.pdf
     │   ├── fixtures
     │   │   ├── __init__.py
     │   │   ├── test_document.docx
@@ -55,6 +60,7 @@ Here's the updated backend file tree for you to copy:
     │   └── retrieval
     │       ├── __init__.py
     │       └── test_faiss_retrieval.py
+    │       └── test_retriever.py
     └── tools
         └── __init__.py
 
