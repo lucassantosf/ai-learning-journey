@@ -19,7 +19,12 @@ class IngestionPipeline:
         self.cleaner = TextCleaner()
         self.chunker = Chunker()
         self.embedding_generator = EmbeddingGenerator()
-        self.vector_store = FaissVectorStore(embedding_dim=1536)
+
+        # Vector Store path
+        vector_store_path = os.getenv("VECTOR_STORE_PATH", "./data/faiss_index.bin")
+        os.makedirs(os.path.dirname(vector_store_path), exist_ok=True)
+
+        self.vector_store = FaissVectorStore(embedding_dim=1536,path=vector_store_path)
 
     def process(self, file_path: str) -> Dict[str, Any]:
         log_info(f"🚀 Iniciando pipeline de ingestão para: {file_path}")
@@ -65,7 +70,9 @@ class IngestionPipeline:
         # 6️⃣ Indexar no FAISS
         log_info("💾 Adicionando embeddings ao vetor store FAISS...")
         self.vector_store.add_embeddings(vectors, metadatas)
-        log_success("✅ Embeddings adicionados ao FAISS com sucesso!")
+
+        if self.vector_store.path:
+            self.vector_store.save()
 
         log_success("✅ Documento processado e indexado com sucesso!")
 

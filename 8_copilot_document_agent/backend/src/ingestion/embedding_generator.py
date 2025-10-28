@@ -60,3 +60,7 @@ class EmbeddingGenerator:
         except Exception as e:
             # Ensure any API errors are properly raised
             raise Exception(f"Failed to generate embeddings: {str(e)}")
+        
+    def embed_text(self, text: str):
+        """Compatibilidade com retrievers que chamam embed_text()."""
+        return self.generate([text])[0]

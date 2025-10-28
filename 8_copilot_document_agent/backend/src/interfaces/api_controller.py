@@ -12,7 +12,9 @@ from src.core.logger import log_info, log_success
 app = FastAPI(title="Copiloto Jurídico - API")
 
 # --- Inicialização ---
-vector_store = FaissVectorStore(path="data/faiss_index.index")  # índice persistido
+vector_store_path = os.getenv("VECTOR_STORE_PATH", "./data/faiss_index.bin")
+
+vector_store = FaissVectorStore(path=vector_store_path)  # índice persistido
 embedding_model = EmbeddingGenerator(model="text-embedding-3-small")  # seu generator real
 retriever = Retriever(vector_store=vector_store, embedding_model=embedding_model)
 llm_client = OpenAI()  # LLM real
@@ -65,12 +67,24 @@ async def query_endpoint(request: QueryRequest):
     log_info(f"🔍 Query recebida: {question}")
 
     try:
+        # Cria um novo FaissVectorStore apontando para o mesmo path
+        # Isso garante que o índice carregue sempre o estado mais recente do disco
+        vector_store_latest = FaissVectorStore(path=vector_store_path)
+        retriever_latest = Retriever(
+            vector_store=vector_store_latest,
+            embedding_model=embedding_model
+        )
+        rag_agent_latest = RAGAgent(
+            retriever=retriever_latest,
+            client=llm_client
+        )
+
         # Busca os top_k chunks
-        results = retriever.search(question, top_k=5)
+        results = retriever_latest.search(question, top_k=5)
         contexts = [r["text"] for r in results]
 
         # Gera resposta do LLM
-        response_text = rag_agent.ask(question, top_k=5)
+        response_text = rag_agent_latest.ask(question, top_k=5)
 
         log_success("✅ Query processada com sucesso!")
         return {
