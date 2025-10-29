@@ -3,66 +3,69 @@
 
 Here's the updated backend file tree for you to copy:
 
-/backend
+backend
 ├── .env
 ├── .env.example
 ├── main.py
 ├── pytest.ini
 ├── README.md
 ├── requirements.txt
+├── data/
+│   ├── faiss_index.bin
+│   └── faiss_index.bin.meta.json
 └── src
-    ├── __init__.py
-    ├── agents
-    │   ├── __init__.py
-    │   └── rag_agent.py
-    ├── core
-    │   ├── __init__.py
-    │   ├── config.py
-    │   ├── logger.py
-    │   └── models.py
-    ├── data
-    │   ├── __init__.py
-    │   └── embedding.py
-    ├── ingestion
-    │   ├── __init__.py
-    │   ├── chunker.py
-    │   ├── docx_parser.py
-    │   ├── embedding_generator.py
-    │   ├── ingestion_pipeline.py
-    │   ├── parser_base.py
-    │   ├── pdf_parser.py
-    │   └── text_cleaner.py
-    ├── interfaces
-    │   ├── __init__.py
-    │   └── api_controller.py
-    ├── retrieval
-    │   ├── __init__.py
-    │   └── faiss_vector_store.py
-    │   └── retriever.py
-    ├── tests
-    │   ├── __init__.py
-    │   ├── agents
-    │   │   ├── __init__.py
-    │   │   └── test_rag_agent.pdf
-    │   ├── fixtures
-    │   │   ├── __init__.py
-    │   │   ├── test_document.docx
-    │   │   └── test_document.pdf
-    │   ├── ingestion
-    │   │   ├── __init__.py
-    │   │   ├── test_chunker.py
-    │   │   ├── test_document_parser.py
-    │   │   ├── test_docx_parser.py
-    │   │   ├── test_embedding_generator.py
-    │   │   ├── test_ingestion_pipeline.py
-    │   │   ├── test_pdf_parser.py
-    │   │   └── test_text_cleaner.py
-    │   └── retrieval
-    │       ├── __init__.py
-    │       └── test_faiss_retrieval.py
-    │       └── test_retriever.py
-    └── tools
-        └── __init__.py
+├── __init__.py
+├── agents
+│   ├── __init__.py
+│   └── rag_agent.py
+├── core
+│   ├── __init__.py
+│   ├── config.py
+│   ├── logger.py
+│   └── models.py
+├── data
+│   ├── __init__.py
+│   └── embedding.py
+├── ingestion
+│   ├── __init__.py
+│   ├── chunker.py
+│   ├── docx_parser.py
+│   ├── embedding_generator.py
+│   ├── ingestion_pipeline.py
+│   ├── parser_base.py
+│   ├── pdf_parser.py
+│   └── text_cleaner.py
+├── interfaces
+│   ├── __init__.py
+│   └── api_controller.py
+├── retrieval
+│   ├── __init__.py
+│   ├── faiss_vector_store.py
+│   └── retriever.py
+├── tests
+│   ├── __init__.py
+│   ├── agents
+│   │   ├── __init__.py
+│   │   └── test_rag_agent.py
+│   ├── fixtures
+│   │   ├── __init__.py
+│   │   ├── test_document.docx
+│   │   └── test_document.pdf
+│   ├── ingestion
+│   │   ├── __init__.py
+│   │   ├── test_chunker.py
+│   │   ├── test_document_parser.py
+│   │   ├── test_docx_parser.py
+│   │   ├── test_embedding_generator.py
+│   │   ├── test_ingestion_pipeline.py
+│   │   ├── test_pdf_parser.py
+│   │   └── test_text_cleaner.py
+│   └── retrieval
+│       ├── __init__.py
+│       ├── test_faiss_retrieval.py
+│       └── test_retriever.py
+└── tools
+└── __init__.py
 
 # 🔄 Fluxo geral entre classes
 
