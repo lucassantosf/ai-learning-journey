@@ -6,32 +6,27 @@ from src.ingestion.chunker import Chunker
 
 @patch("src.ingestion.chunker.log_info")
 def test_chunker_basic(mock_log):
-    text = "a" * 1000
+    text = "palavra " * 1000
     chunker = Chunker(chunk_size=300, overlap=0)
     chunks = chunker.chunk_text([text])
 
-    # Verificações básicas
     assert isinstance(chunks, list)
     assert all(isinstance(c, str) for c in chunks)
 
-    # Esperamos ceil(len(text) / chunk_size) chunks quando overlap == 0
-    expected = math.ceil(len(text) / 300)
+    expected = math.ceil(1000 / 300)
     assert len(chunks) == expected
 
-    # Verifica se o logger foi chamado corretamente
-    mock_log.assert_called_once_with("Dividindo texto em chunks...")
-
+    # Agora verificamos se a mensagem inicial foi chamada (não quantas vezes)
+    mock_log.assert_any_call("Dividindo texto em chunks com sobreposição de contexto...")
 
 def test_chunker_with_overlap():
-    text = "a" * 1000
+    text = "palavra " * 1000  # 1000 palavras
     chunker = Chunker(chunk_size=300, overlap=100)
     chunks = chunker.chunk_text([text])
 
-    # Deve ter mais chunks do que sem overlap (4 sem overlap)
-    assert len(chunks) > 4
-    # E os tamanhos individuais devem respeitar o limite máximo
-    assert all(len(c) <= 300 for c in chunks)
-
+    # Cada novo chunk começa 200 palavras após o anterior (300 - 100)
+    expected = ((1000 - 100) // (300 - 100)) + 1  # fórmula geral para chunks com overlap
+    assert len(chunks) == expected
 
 def test_chunker_multiple_texts():
     texts = ["x" * 400, "y" * 200]

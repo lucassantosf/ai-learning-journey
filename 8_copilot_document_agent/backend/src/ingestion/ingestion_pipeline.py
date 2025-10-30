@@ -62,6 +62,7 @@ class IngestionPipeline:
                 "file_name": os.path.basename(file_path),
                 "file_path": os.path.abspath(file_path),
                 "chunk_id": i,
+                "text": chunks[i],
                 "text_preview": chunks[i][:120]
             }
             for i in range(len(chunks))

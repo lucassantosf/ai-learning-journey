@@ -22,11 +22,18 @@ class MockEmbeddingGenerator:
 
 class MockFaissVectorStore:
     def __init__(self, *args, **kwargs):
-        pass
+        self.path = "./data/faiss_index.bin"
+        self.embeddings = []
+        self.metadatas = []
+        self.saved = False  # flag para teste
 
-    def add_embeddings(self, *args, **kwargs):
-        pass
+    def add_embeddings(self, embeddings, metadatas):
+        self.embeddings.extend(embeddings)
+        self.metadatas.extend(metadatas)
 
+    def save(self):
+        # apenas simula o comportamento de persistência
+        self.saved = True
 
 # ==============================
 # FIXTURE GLOBAL (PATCH AUTOMÁTICO)
