@@ -60,10 +60,13 @@ backend
 │   │   ├── test_ingestion_pipeline.py
 │   │   ├── test_pdf_parser.py
 │   │   └── test_text_cleaner.py
-│   └── retrieval
+│   ├── retrieval
+│   │   ├── __init__.py
+│   │   ├── test_faiss_retrieval.py
+│   │   └── test_retriever.py
+│   └── integration
 │       ├── __init__.py
-│       ├── test_faiss_retrieval.py
-│       └── test_retriever.py
+│       └── test_full_pipeline.py  
 └── tools
 └── __init__.py
 
