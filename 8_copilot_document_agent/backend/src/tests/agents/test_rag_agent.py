@@ -1,7 +1,8 @@
 import pytest
 from typing import List, Dict, Any
 from src.agents.rag_agent import RAGAgent
-
+from unittest.mock import MagicMock
+from src.retrieval.retriever import Retriever
 
 # ----------------------------
 # Dummies (mantidos e expandidos)
@@ -138,3 +139,24 @@ def test_rag_agent_handles_llm_error(monkeypatch):
 
     with pytest.raises(RuntimeError):
         agent.ask("Pergunta que quebra o LLM")
+
+# Falha na chamada ao LLM
+def test_ragagent_llm_failure(monkeypatch):
+    retriever = MagicMock(spec=Retriever)
+    retriever.search.return_value = [{"text": "contexto"}]
+    
+    client = MagicMock()
+    client.chat.completions.create.side_effect = Exception("LLM error")
+    
+    agent = RAGAgent(retriever=retriever, client=client)
+    
+    with pytest.raises(Exception, match="LLM error"):
+        agent.ask("O que é inteligência artificial?")
+
+# Nenhum documento relevante encontrado
+def test_ragagent_no_context(monkeypatch):
+    retriever = MagicMock()
+    retriever.search.return_value = []
+    agent = RAGAgent(retriever=retriever)
+    response = agent.ask("Pergunta sem resultados")
+    assert response == "No relevant documents found."

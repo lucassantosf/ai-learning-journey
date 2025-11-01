@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from src.ingestion.pdf_parser import PDFParser
-
+from unittest.mock import MagicMock
 
 @patch("src.ingestion.pdf_parser.log_info")
 @patch("src.ingestion.pdf_parser.pdfplumber.open")
@@ -53,3 +53,24 @@ def test_parse_pdf_raises_exception(mock_open, mock_log):
         parser.parse("../fixtures/missing.pdf")
 
     mock_log.assert_called_once_with("Parsing PDF: ../fixtures/missing.pdf")
+
+# Arquivo inexistente
+def test_pdf_parser_file_not_found():
+    parser = PDFParser()
+    with pytest.raises(FileNotFoundError):
+        parser.parse("arquivo_inexistente.pdf")
+
+@patch("pdfplumber.open")
+def test_pdf_parser_empty_pages(mock_open):  # <-- nome correto do mock
+    mock_page = MagicMock()
+    mock_page.extract_text.return_value = None
+
+    mock_pdf = MagicMock()
+    mock_pdf.__enter__.return_value = mock_pdf
+    mock_pdf.pages = [mock_page]
+
+    mock_open.return_value = mock_pdf
+
+    parser = PDFParser()
+    texts = parser.parse("fake.pdf")
+    assert texts == [""]

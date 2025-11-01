@@ -7,7 +7,7 @@ class TextCleaner:
         log_info("Limpando texto...")
         cleaned = []
         for text in texts:
-            text = re.sub(r'\s+', ' ', text).strip()
-            text = re.sub(r'[^\x00-\x7F]+', '', text)  # remove caracteres especiais
-            cleaned.append(text)
+            text = re.sub(r'\s+', ' ', text)
+            text = re.sub(r'[^\x00-\x7F]+', '', text)
+            cleaned.append(text.strip())  # <-- adiciona .strip() aqui
         return cleaned

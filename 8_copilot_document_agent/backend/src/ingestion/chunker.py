@@ -16,6 +16,10 @@ class Chunker:
         chunks = []
 
         for text in texts:
+            if not text.strip():   
+                chunks.append("") 
+                continue
+    
             # Divide o texto em palavras
             words = text.split()
             start = 0

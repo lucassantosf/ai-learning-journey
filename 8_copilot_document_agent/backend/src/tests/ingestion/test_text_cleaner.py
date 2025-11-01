@@ -45,3 +45,9 @@ def test_clean_empty_text(mock_log):
     # Texto vazio ou só espaços vira string vazia
     assert cleaned == ["", ""]
     mock_log.assert_called_once_with("Limpando texto...")
+
+# TextCleaner limpa corretamente
+def test_text_cleaner_removes_specials():
+    cleaner = TextCleaner()
+    result = cleaner.clean(["Olá   mundo!!!    çãõ"])
+    assert result[0] == "Ol mundo!!!"

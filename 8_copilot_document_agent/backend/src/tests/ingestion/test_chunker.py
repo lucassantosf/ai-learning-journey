@@ -57,3 +57,15 @@ def test_chunker_empty_text():
     chunks = chunker.chunk_text([""])
 
     assert chunks == []
+
+# Overlap >= chunk_size (evita loop infinito)
+def test_chunker_overlap_too_large():
+    chunker = Chunker(chunk_size=100, overlap=100)
+    chunks = chunker.chunk_text(["Texto simples aqui"])
+    assert len(chunks) == 1
+
+# Texto vazio ou muito pequeno
+def test_chunker_empty_text():
+    chunker = Chunker(chunk_size=500, overlap=100)
+    chunks = chunker.chunk_text([""])
+    assert chunks == [""]
