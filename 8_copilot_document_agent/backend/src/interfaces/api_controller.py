@@ -8,6 +8,7 @@ from src.ingestion.embedding_generator import EmbeddingGenerator
 from src.retrieval.faiss_vector_store import FaissVectorStore
 from openai import OpenAI
 from src.core.logger import log_info, log_success
+from src.agents.agent_manager import AgentManager
 
 app = FastAPI(title="Copiloto Jurídico - API")
 
@@ -20,6 +21,7 @@ retriever = Retriever(vector_store=vector_store, embedding_model=embedding_model
 llm_client = OpenAI()  # LLM real
 rag_agent = RAGAgent(retriever=retriever, client=llm_client)
 pipeline = IngestionPipeline()
+agent_manager = AgentManager(retriever=retriever)
 
 # --- Pydantic Model ---
 class QueryRequest(BaseModel):
@@ -95,4 +97,18 @@ async def query_endpoint(request: QueryRequest):
 
     except Exception as e:
         log_info(f"❌ Falha ao processar query: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/agent_query")
+async def agent_query(request: QueryRequest):
+    question = request.question
+    log_info(f"🧠 Agent query recebida: {question}")
+
+    try:
+        response_text = agent_manager.ask(question)
+        log_success("✅ Agent query processada com sucesso!")
+        return {"question": question, "answer": response_text}
+
+    except Exception as e:
+        log_info(f"❌ Falha ao processar agent_query: {e}")
         raise HTTPException(status_code=500, detail=str(e))

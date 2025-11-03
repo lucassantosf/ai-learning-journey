@@ -13,6 +13,7 @@ docx2txt==0.8             # Leitura de arquivos DOCX
 # --- IA / Embeddings ---
 openai==1.79.0            # Cliente oficial OpenAI para gerar embeddings
 llama-index==0.11.6       # Facilita manipulação de textos e vetores (base futura para o agente)
+llama-index-llms-openai
 
 # --- Vetor e Similaridade ---
 faiss-cpu==1.8.0.post1    # Banco vetorial local para indexar embeddings
