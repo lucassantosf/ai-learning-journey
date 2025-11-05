@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict, Any
 from src.retrieval.retriever import Retriever
 from openai import OpenAI
 
@@ -48,3 +48,42 @@ class RAGAgent:
 
         # 4️⃣ Retorna texto da resposta
         return response.choices[0].message.content
+
+    def run_with_trace(self, question: str, top_k: int = 5) -> Dict[str, Any]:
+        """
+        Executa o RAG e retorna o raciocínio e ferramentas usadas.
+        """
+        reasoning_steps = []
+        tools_used = []
+
+        reasoning_steps.append("🔎 Buscando contextos relevantes com FAISS retriever...")
+        tools_used.append("faiss_retriever")
+
+        results = self.retriever.search(question, top_k=top_k)
+        contexts = [r["text"] for r in results]
+
+        if not contexts:
+            return {
+                "reasoning": "\n".join(reasoning_steps) + "\n⚠️ Nenhum documento relevante encontrado.",
+                "tools_used": tools_used,
+                "final_answer": "No relevant documents found."
+            }
+
+        reasoning_steps.append(f"🧩 {len(contexts)} trechos relevantes encontrados. Gerando resposta com LLM...")
+        tools_used.append("llm")
+
+        prompt = self._build_prompt(question, contexts)
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0
+        )
+
+        answer = response.choices[0].message.content.strip()
+        reasoning_steps.append("✅ Resposta gerada com sucesso.")
+
+        return {
+            "reasoning": "\n".join(reasoning_steps),
+            "tools_used": tools_used,
+            "final_answer": answer
+        }

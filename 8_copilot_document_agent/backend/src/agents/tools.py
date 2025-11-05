@@ -1,3 +1,4 @@
+from typing import Optional
 from llama_index.core.tools import FunctionTool
 from src.core.logger import log_info
 from src.retrieval.retriever import Retriever
@@ -91,9 +92,13 @@ def build_tools(retriever: Retriever, shared_client=None):
     # -----------------------------
     # Tool 4: Comparar dois documentos
     # -----------------------------
-    def compare_documents(doc_a: str, doc_b: str):
+    def compare_documents(doc_a: str, doc_b: Optional[str] = None) -> str:
         """Compara dois documentos jurídicos e destaca diferenças principais."""
         log_info("🧠 [Tool] compare_documents chamada")
+
+        if not doc_b:   
+            return "❌ Comparação inválida — segundo documento ausente."
+    
         prompt = (
             "Compare os dois documentos abaixo e descreva as principais diferenças "
             "entre suas cláusulas e obrigações:\n\n"
@@ -116,9 +121,9 @@ def build_tools(retriever: Retriever, shared_client=None):
     # -----------------------------
     # Retorna todas as tools registradas
     # -----------------------------
-    return [
-        tool_search,
-        tool_summarize,
-        tool_extract,
-        tool_compare,
-    ]
+    return {
+        "document_search": tool_search,
+        "summarize_document": tool_summarize,
+        "extract_legal_clauses": tool_extract,
+        "compare_documents": tool_compare,
+    }

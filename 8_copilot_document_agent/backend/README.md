@@ -19,7 +19,11 @@ backend
 │   │   ├── __init__.py
 │   │   ├── agent_manager.py
 │   │   ├── rag_agent.py
-│   │   └── tools.py
+│   │   ├── tools.py
+│   │   └── prompts
+│   │       ├── classify_prompt.py
+│   │       ├── final_prompt.py
+│   │       └── tool_execution_prompt.py
 │   ├── core
 │   │   ├── __init__.py
 │   │   ├── config.py

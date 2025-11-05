@@ -236,3 +236,29 @@ async def agent_query_result(job_id: str):
         "result": job.get("result"),
         "error": job.get("error")
     }
+
+@app.post("/agent")
+async def agent_endpoint(request: QueryRequest):
+    """
+    Executa o agente com raciocínio multi-hop (multi-step) e ferramentas contextuais.
+    """
+    question = request.question
+    log_info(f"🤖 /agent (multi-hop) chamado com pergunta: {question}")
+
+    try:
+        vector_store_latest = FaissVectorStore(path=VECTOR_STORE_PATH)
+        retriever_latest = Retriever(
+            vector_store=vector_store_latest,
+            embedding_model=embedding_model
+        )
+
+        # Passamos o mesmo cliente LLM reutilizado
+        advanced_agent = AgentManager(retriever=retriever_latest, client=llm_client)
+        result = advanced_agent.ask(question)
+
+        log_success("✅ /agent (multi-hop) processado com sucesso!")
+        return result
+
+    except Exception as e:
+        log_info(f"❌ Erro ao executar /agent (multi-hop): {e}")
+        raise HTTPException(status_code=500, detail=str(e))
