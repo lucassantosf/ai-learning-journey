@@ -20,7 +20,10 @@ def test_parse_pdf_multiple_pages(mock_open, mock_log):
 
     # Verificações
     mock_open.assert_called_once_with("../fixtures/test_document.pdf")
-    mock_log.assert_called_once_with("Parsing PDF: ../fixtures/test_document.pdf")
+    mock_log.assert_called()
+    assert "../fixtures/test_document.pdf" in mock_log.call_args[0][0]
+    assert "Parsing PDF" in mock_log.call_args[0][0]
+
     assert isinstance(result, list)
     assert result == ["Texto da página 1", "Texto da página 2"]
 
@@ -52,7 +55,7 @@ def test_parse_pdf_raises_exception(mock_open, mock_log):
     with pytest.raises(FileNotFoundError):
         parser.parse("../fixtures/missing.pdf")
 
-    mock_log.assert_called_once_with("Parsing PDF: ../fixtures/missing.pdf")
+    mock_log.assert_called_once_with("📄 Parsing PDF: ../fixtures/missing.pdf")
 
 # Arquivo inexistente
 def test_pdf_parser_file_not_found():

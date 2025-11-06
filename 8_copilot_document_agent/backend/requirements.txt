@@ -26,3 +26,8 @@ typing-extensions==4.12.2 # Garantir compatibilidade de tipos opcionais
 pytest
 reportlab 
 python-docx
+
+# OCR 
+pytesseract
+pdf2image
+Pillow
