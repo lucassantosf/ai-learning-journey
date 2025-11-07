@@ -31,3 +31,7 @@ python-docx
 pytesseract
 pdf2image
 Pillow
+
+# Databases
+sqlalchemy>=2.0
+psycopg2-binary>=2.9
