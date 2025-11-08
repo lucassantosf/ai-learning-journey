@@ -3,7 +3,7 @@ import os
 import uuid
 import asyncio
 from typing import Dict, Any, Optional
-from fastapi import FastAPI, UploadFile, HTTPException, BackgroundTasks, Query
+from fastapi import FastAPI, UploadFile, HTTPException, BackgroundTasks, Query, Depends
 from pydantic import BaseModel
 
 from src.ingestion.ingestion_pipeline import IngestionPipeline
@@ -15,9 +15,21 @@ from openai import OpenAI
 from src.core.logger import log_info, log_success, log_info as info
 
 from src.agents.agent_manager import AgentManager
+from src.db.database import init_db, get_db
 
 app = FastAPI(title="Copiloto Jurídico - API (optimized)")
 
+from src.db.models import Document, Chunk, Embedding
+from sqlalchemy.orm import Session
+
+# ---------------------------
+# Inicialização banco SQLite
+# ---------------------------
+# Inicializa banco no startup
+@app.on_event("startup")
+async def startup_event():
+    init_db()
+    
 # ---------------------------
 # Inicialização (singletons)
 # ---------------------------
@@ -262,3 +274,19 @@ async def agent_endpoint(request: QueryRequest):
     except Exception as e:
         log_info(f"❌ Erro ao executar /agent (multi-hop): {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/db")
+def debug_db(db: Session = Depends(get_db)):
+    """Rota de diagnóstico que mostra o estado atual do banco."""
+    doc_count = db.query(Document).count()
+    chunk_count = db.query(Chunk).count()
+    emb_count = db.query(Embedding).count()
+
+    docs = db.query(Document.id, Document.filename).all()
+
+    return {
+        "documents_total": doc_count,
+        "chunks_total": chunk_count,
+        "embeddings_total": emb_count,
+        "documents": [{"id": d.id, "filename": d.filename} for d in docs],
+    }

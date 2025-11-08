@@ -57,7 +57,7 @@ class Embedding(Base):
     id = Column(Integer, primary_key=True, index=True)
     chunk_id = Column(Integer, ForeignKey("chunks.id", ondelete="CASCADE"))
     vector = Column(JSON, nullable=False)  # Armazena o vetor como lista (float[])
-    metadata = Column(JSON, nullable=True)
+    meta = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relacionamento
@@ -95,7 +95,7 @@ class Response(Base):
     id = Column(Integer, primary_key=True, index=True)
     query_id = Column(Integer, ForeignKey("queries.id", ondelete="CASCADE"))
     answer = Column(Text, nullable=False)
-    metadata = Column(JSON, nullable=True)
+    data = Column(JSON, name="metadata")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relacionamento
