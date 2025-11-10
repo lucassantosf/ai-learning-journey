@@ -1,182 +1,190 @@
+# 🚀 Backend Architecture: Intelligent Document Processing System
 
-# 🔍 Visão geral das classes principais e responsabilidades
+## 📋 Overview
 
-Here's the updated backend file tree for you to copy:
+This backend implements a sophisticated Retrieval-Augmented Generation (RAG) system with multi-hop reasoning capabilities for intelligent document processing.
 
-backend
+## 🏗️ Project Structure
+
+```
+backend/
 ├── .env
 ├── .env.example
 ├── main.py
 ├── pytest.ini
 ├── README.md
 ├── requirements.txt
+│
 ├── data/
+│   ├── app.db
 │   ├── faiss_index.bin
 │   └── faiss_index.bin.meta.json
-├── src/
-│   ├── __init__.py
-│   ├── agents/
-│   │   ├── __init__.py
-│   │   ├── agent_manager.py
-│   │   ├── rag_agent.py
-│   │   ├── tools.py
-│   │   └── prompts/
-│   │       ├── classify_prompt.py
-│   │       ├── final_prompt.py
-│   │       └── tool_execution_prompt.py
-│   ├── core/
-│   │   ├── __init__.py
-│   │   ├── config.py
-│   │   ├── logger.py
-│   │   └── models.py
-│   ├── data/
-│   │   ├── __init__.py
-│   │   └── embedding.py
-│   ├── ingestion/
-│   │   ├── __init__.py
-│   │   ├── chunker.py
-│   │   ├── docx_parser.py
-│   │   ├── embedding_generator.py
-│   │   ├── ingestion_pipeline.py
-│   │   ├── parser_base.py
-│   │   ├── pdf_parser.py
-│   │   └── text_cleaner.py
-│   ├── interfaces/
-│   │   ├── __init__.py
-│   │   └── api_controller.py
-│   ├── retrieval/
-│   │   ├── __init__.py
-│   │   ├── faiss_vector_store.py
-│   │   └── retriever.py
-│   └── tests/
-│       ├── __init__.py
-│       ├── agents/
-│       │   └── test_rag_agent.py
-│       ├── errors/
-│       │   └── test_errors_and_edge_cases.py
-│       ├── fixtures/
-│       │   ├── __init__.py
-│       │   ├── contract.pdf
-│       │   ├── test_document.docx
-│       │   └── test_document.pdf
-│       ├── ingestion/
-│       │   ├── __init__.py
-│       │   ├── test_chunker.py
-│       │   ├── test_document_parser.py
-│       │   ├── test_docx_parser.py
-│       │   ├── test_embedding_generator.py
-│       │   ├── test_ingestion_pipeline.py
-│       │   ├── test_pdf_parser_ocr.py
-│       │   ├── test_pdf_parser.py
-│       │   ├── test_rag_agent_quality.py
-│       │   └── test_text_cleaner.py
-│       ├── integration/
-│       │   ├── __init__.py
-│       │   └── test_full_pipeline.py
-│       └── retrieval/
-│           ├── __init__.py
-│           ├── test_faiss_retrieval.py
-│           └── test_retriever.py
+│
+└── src/
+    ├── __init__.py
+    │
+    ├── agents/
+    │   ├── __init__.py
+    │   ├── agent_manager.py
+    │   ├── rag_agent.py
+    │   ├── tools.py
+    │   └── prompts/
+    │       ├── classify_prompt.py
+    │       ├── final_prompt.py
+    │       └── tool_execution_prompt.py
+    │
+    ├── core/
+    │   ├── __init__.py
+    │   ├── config.py
+    │   ├── logger.py
+    │   └── models.py
+    │
+    ├── data/
+    │   ├── __init__.py
+    │   └── embedding.py
+    │
+    ├── db/
+    │   ├── __init__.py
+    │   ├── database.py
+    │   ├── models.py
+    │   ├── migrations/
+    │   │   └── README.md
+    │   └── repositories/
+    │       ├── __init__.py
+    │       ├── chunk_repository.py
+    │       ├── document_repository.py
+    │       ├── embedding_repository.py
+    │       ├── query_repository.py
+    │       └── response_repository.py
+    │
+    ├── ingestion/
+    │   ├── __init__.py
+    │   ├── chunker.py
+    │   ├── docx_parser.py
+    │   ├── embedding_generator.py
+    │   ├── ingestion_pipeline.py
+    │   ├── parser_base.py
+    │   ├── pdf_parser.py
+    │   └── text_cleaner.py
+    │
+    ├── interfaces/
+    │   ├── __init__.py
+    │   └── api_controller.py
+    │
+    ├── retrieval/
+    │   ├── __init__.py
+    │   ├── faiss_vector_store.py
+    │   └── retriever.py
+    │
+    └── tests/
+        ├── __init__.py
+        ├── agents/
+        │   └── test_rag_agent.py
+        ├── errors/
+        │   └── test_errors_and_edge_cases.py
+        ├── fixtures/
+        │   ├── __init__.py
+        │   ├── contract.pdf
+        │   ├── test_document.docx
+        │   └── test_document.pdf
+        ├── ingestion/
+        │   ├── __init__.py
+        │   ├── test_chunker.py
+        │   ├── test_document_parser.py
+        │   ├── test_docx_parser.py
+        │   ├── test_embedding_generator.py
+        │   ├── test_ingestion_pipeline.py
+        │   ├── test_pdf_parser_ocr.py
+        │   ├── test_pdf_parser.py
+        │   ├── test_rag_agent_quality.py
+        │   └── test_text_cleaner.py
+        ├── integration/
+        │   ├── __init__.py
+        │   └── test_full_pipeline.py
+        └── retrieval/
+            ├── __init__.py
+            ├── test_faiss_retrieval.py
+            └── test_retriever.py
+
 └── tests/
     └── fixtures/
         ├── test_document.docx
         └── test_document.pdf
+```
 
+## 🔍 System Architecture
 
-# 🔄 Fluxo geral entre classes
+### Key Components
+- **Ingestion Pipeline**: Document parsing and embedding
+- **Vector Retrieval**: Semantic search engine
+- **Contextual Agents**: Multi-hop reasoning
+- **Persistent Storage**: Document and embedding management
 
-Usuário → APIController.upload()
-        → IngestionPipeline.process()
-            → PDFParser → TextCleaner → Chunker → EmbeddingGenerator → FaissVectorStore
+## 🚀 Component Overview
 
-Usuário → APIController.query()
-        → QueryProcessor
-            → Retriever (FAISS)
-            → LLM (OpenAI)
-            → retorna resposta + trechos
+### 1. Core Layer
+Provides foundational classes and utilities for the entire system.
 
-Usuário → APIController.agent()
-        → AgentExecutor
-            → MultiHopAgent
-                → Usa Tools (SummarizeTool, CompareDocumentsTool, etc.)
+#### Key Classes
+- `Document`: Represents uploaded documents
+- `Chunk`: Represents document text segments
+- `EmbeddingVector`: Manages semantic embeddings
+- `Config`: Handles environment configurations
+- `Logger`: Advanced logging with rich formatting
 
-# 🧩 1. Core
+### 2. Ingestion Module
+Responsible for document processing and preparation.
 
-Camada base que define entidades e serviços genéricos usados por todo o sistema.
+#### Key Responsibilities
+- Parse various document formats (PDF, DOCX)
+- Clean and normalize text
+- Generate semantic chunks
+- Create vector embeddings
 
-| Classe              | Responsabilidade                                                                            |
-| ------------------- | ------------------------------------------------------------------------------------------- |
-| **Document**        | Representa um documento carregado (id, nome, tipo, texto limpo, metadados, data de upload). |
-| **Chunk**           | Representa um trecho (chunk) do documento que será transformado em embedding.               |
-| **EmbeddingVector** | Representa um vetor e seus metadados (texto original, doc_id, posição, embedding).          |
-| **Config**          | Lê variáveis do `.env` e mantém as configurações globais (chaves API, caminhos, etc.).      |
-| **Logger**          | Wrapper do `rich` para logs coloridos, com níveis (INFO, DEBUG, ERROR).                     |
+### 3. Retrieval Engine
+Implements semantic search and context retrieval.
 
-# 📥 2. Ingestion
+#### Key Features
+- FAISS-based vector store
+- Cosine similarity search
+- Contextual chunk retrieval
 
-Responsável por ler, extrair e preparar documentos para indexação.
+### 4. Intelligent Agents
+Enables advanced reasoning and multi-step query processing.
 
-| Classe                 | Responsabilidade                                                                                    |
-| ---------------------- | --------------------------------------------------------------------------------------------------- |
-| **DocumentParser**     | Interface base para parsers (PDF, DOCX, etc.).                                                      |
-| **PDFParser**          | Extrai texto e metadados de arquivos PDF (usando `pdfplumber`).                                     |
-| **DocxParser**         | Extrai texto e metadados de arquivos DOCX (usando `docx2txt`).                                      |
-| **TextCleaner**        | Faz limpeza do texto (remove quebras, espaços duplicados, símbolos).                                |
-| **Chunker**            | Divide o texto em blocos com sobreposição de contexto (para embeddings).                            |
-| **EmbeddingGenerator** | Converte cada chunk em um embedding (usando modelo OpenAI).                                         |
-| **IngestionPipeline**  | Classe orquestradora: recebe o arquivo → chama parser → limpa → chunk → embedding → salva no FAISS. |
+#### Agent Capabilities
+- Retrieve relevant document contexts
+- Execute multi-hop reasoning
+- Use specialized tools for complex queries
 
-# 🧠 3. Retrieval
+### 5. Interfaces
+Provides API endpoints for document interaction.
 
-Responsável por buscar os trechos mais relevantes a partir de uma consulta.
+#### Endpoints
+- `/upload`: Document ingestion
+- `/query`: Contextual question-answering
+- `/agent`: Advanced reasoning queries
+- `/feedback`: User response improvement
 
-| Classe               | Responsabilidade                                                                              |
-| -------------------- | --------------------------------------------------------------------------------------------- |
-| **VectorStore**      | Interface para o armazenamento vetorial (inserção, busca, deleção).                           |
-| **FaissVectorStore** | Implementação concreta usando FAISS local.                                                    |
-| **Retriever**        | Busca os embeddings mais semelhantes (cosine similarity) e retorna chunks relevantes.         |
-| **QueryProcessor**   | Coordena a consulta: recebe a pergunta, busca no vetor, formata o contexto e envia ao modelo. |
+## 🛠️ Technologies
 
-# 🤖 4. Agents
+### Backend Stack
+- Python 3.10+
+- FastAPI
+- LlamaIndex
+- OpenAI
+- FAISS
+- SQLAlchemy
+- Rich (logging)
 
-Responsável por raciocínio multi-etapas e ferramentas inteligentes.
+## 🧪 Testing
 
-| Classe            | Responsabilidade                                                                                  |
-| ----------------- | ------------------------------------------------------------------------------------------------- |
-| **BaseAgent**     | Classe genérica que define interface de raciocínio, ferramenta e execução.                        |
-| **RAGAgent**      | Usa o retriever como ferramenta e combina respostas do LLM com citações.                          |
-| **MultiHopAgent** | Extende o RAGAgent permitindo múltiplas consultas e combinações (multi-hop QA).                   |
-| **AgentExecutor** | Coordena o fluxo: identifica a pergunta → escolhe ferramentas → executa → retorna resposta final. |
+### Test Coverage
+- Unit tests for each component
+- Integration tests for full pipeline
+- Error handling and edge case tests
 
-# 🛠️ 5. Tools
-
-Ferramentas específicas que o agente pode usar.
-
-| Classe                      | Responsabilidade                                      |
-| --------------------------- | ----------------------------------------------------- |
-| **SummarizeTool**           | Resume um documento ou conjunto de chunks.            |
-| **ExtractLegalClausesTool** | Identifica e extrai cláusulas jurídicas específicas.  |
-| **CompareDocumentsTool**    | Compara dois documentos e gera resumo das diferenças. |
-| **SearchTool**              | Busca direta em texto bruto ou metadados.             |
-
-# 🌐 6. Interfaces
-
-Camada de entrada/saída (APIs, UI, etc.).
-
-| Classe              | Responsabilidade                                                                 |
-| ------------------- | -------------------------------------------------------------------------------- |
-| **APIController**   | Define rotas e endpoints (upload, query, agent, feedback).                       |
-| **RequestSchemas**  | Define os modelos Pydantic das requisições (UploadRequest, QueryRequest, etc.).  |
-| **ResponseSchemas** | Define os modelos das respostas (SuccessResponse, QueryResponse, AgentResponse). |
-| **ErrorHandler**    | Middleware para erros e logs padronizados na API.                                |
-
-# 🗃️ 7. Data
-
-Camada de persistência (banco de dados e armazenamento local).
-
-| Classe                  | Responsabilidade                                   |
-| ----------------------- | -------------------------------------------------- |
-| **Database**            | Inicializa e gerencia conexão com SQLite/Postgres. |
-| **DocumentRepository**  | CRUD de documentos.                                |
-| **EmbeddingRepository** | CRUD de embeddings.                                |
-| **FeedbackRepository**  | Salva e consulta feedbacks de respostas.           |
+### Running Tests
+```bash
+python -m pytest
+```
