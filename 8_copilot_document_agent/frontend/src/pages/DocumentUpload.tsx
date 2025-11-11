@@ -1,14 +1,74 @@
 import React, { useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { uploadDocument } from '../services/api';
 
 const DocumentUpload: React.FC = () => {
   const [documents, setDocuments] = useState<File[]>([]);
+  const [uploading, setUploading] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const newFiles = Array.from(event.target.files);
       setDocuments(prevDocuments => [...prevDocuments, ...newFiles]);
+    }
+  };
+
+  const processUpload = async () => {
+    if (documents.length === 0) {
+      toast.error('Selecione pelo menos um documento');
+      return;
+    }
+
+    setUploading(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    try {
+      for (const file of documents) {
+        try {
+          const result = await uploadDocument(file);
+          
+          if (result.success) {
+            toast.success(`Documento ${file.name} enviado com sucesso`, {
+              autoClose: 3000, // Keep toast visible for 3 seconds
+              onClose: () => {
+                if (successCount === documents.length && errorCount === 0) {
+                  navigate('/');
+                }
+              }
+            });
+            successCount++;
+          } else {
+            toast.error(`Erro ao enviar ${file.name}: ${result.error}`);
+            errorCount++;
+          }
+        } catch (fileError) {
+          console.error(`Erro específico no upload do arquivo ${file.name}:`, fileError);
+          toast.error(`Erro crítico ao enviar ${file.name}`);
+          errorCount++;
+        }
+      }
+      
+      // Provide summary of upload results
+      if (successCount > 0 && errorCount === 0) {
+        // If all uploads are successful, the navigation will happen in the toast onClose
+        setDocuments([]);
+      } else if (successCount > 0 && errorCount > 0) {
+        toast.warn(`${successCount} documentos enviados, ${errorCount} falharam`, {
+          autoClose: 3000
+        });
+      } else {
+        toast.error('Nenhum documento foi enviado com sucesso');
+      }
+    } catch (error) {
+      console.error('Erro global no processamento dos documentos:', error);
+      toast.error('Erro crítico no processamento dos documentos');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -97,8 +157,16 @@ const DocumentUpload: React.FC = () => {
                 </li>
               ))}
             </ul>
+            <button 
+              onClick={processUpload}
+              disabled={uploading}
+              className="upload-button"
+            >
+              {uploading ? 'Enviando...' : 'Enviar Documentos'}
+            </button>
           </div>
         )}
+        <ToastContainer />
       </div>
     </div>
   );

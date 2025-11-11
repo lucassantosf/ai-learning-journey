@@ -4,6 +4,7 @@ import uuid
 import asyncio
 from typing import Dict, Any, Optional
 from fastapi import FastAPI, UploadFile, HTTPException, BackgroundTasks, Query, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import json
 
@@ -24,6 +25,15 @@ from sqlalchemy.orm import Session
 # 🚀 Inicialização
 # ======================================================
 app = FastAPI(title="Copiloto Jurídico - API (optimized)")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 @app.on_event("startup")
 async def startup_event():
@@ -63,26 +73,64 @@ async def healthcheck():
 # ======================================================
 @app.post("/upload")
 async def upload(file: UploadFile):
-    log_info(f"📤 Recebendo upload: {file.filename}")
-    tmp_file_path = f"/tmp/{file.filename}"
+    # Validate file basics
+    if not file.filename:
+        log_error("❌ Nome do arquivo inválido")
+        raise HTTPException(status_code=400, detail="Nome do arquivo inválido")
+
+    # Validate file extension
+    file_ext = os.path.splitext(file.filename)[1].lower()
+    ALLOWED_EXTENSIONS = {'.pdf', '.docx'}
+    if file_ext not in ALLOWED_EXTENSIONS:
+        log_error(f"❌ Tipo de arquivo não suportado: {file_ext}")
+        raise HTTPException(status_code=400, detail="Apenas arquivos PDF e DOCX são suportados")
+
+    # Generate unique temporary filename
+    import uuid
+    unique_filename = f"{uuid.uuid4()}{file_ext}"
+    tmp_file_path = f"/tmp/{unique_filename}"
 
     try:
+        # Stream file to disk
+        file_size = 0
+        MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+        
         with open(tmp_file_path, "wb") as f:
-            f.write(await file.read())
+            while chunk := await file.read(1024 * 1024):  # Read in 1MB chunks
+                f.write(chunk)
+                file_size += len(chunk)
+                
+                if file_size > MAX_FILE_SIZE:
+                    raise HTTPException(status_code=413, detail="Arquivo muito grande. Limite máximo: 50MB")
+
         log_info(f"📂 Arquivo salvo temporariamente em: {tmp_file_path}")
 
+        # Process the file
         result = pipeline.process(tmp_file_path)
         log_success("✅ Documento processado com sucesso!")
-        return {"message": "Documento processado com sucesso!", "data": result}
+        
+        return {
+            "message": "Documento processado com sucesso!", 
+            "data": result,
+            "filename": file.filename,
+            "size": file_size
+        }
 
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
     except Exception as e:
         log_error(f"❌ Falha ao processar upload: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
 
     finally:
+        # Always attempt to remove temporary file
         if os.path.exists(tmp_file_path):
-            os.remove(tmp_file_path)
-            log_info(f"🧹 Arquivo temporário removido: {tmp_file_path}")
+            try:
+                os.remove(tmp_file_path)
+                log_info(f"🧹 Arquivo temporário removido: {tmp_file_path}")
+            except Exception as cleanup_error:
+                log_error(f"Erro ao remover arquivo temporário: {cleanup_error}")
 
 
 # ======================================================

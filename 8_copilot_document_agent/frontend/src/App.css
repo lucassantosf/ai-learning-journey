@@ -470,6 +470,28 @@ body {
   color: white;
 }
 
+/* Upload Button Styles */
+.upload-button {
+  width: 100%;
+  padding: 10px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-top: 15px;
+}
+
+.upload-button:hover {
+  background-color: #2980b9;
+}
+
+.upload-button:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
 @media (max-width: 600px) {
   .query-history-container {
     padding: 10px;
