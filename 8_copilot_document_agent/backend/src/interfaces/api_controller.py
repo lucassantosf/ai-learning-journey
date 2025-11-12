@@ -314,3 +314,98 @@ def debug_db(db: Session = Depends(get_db)):
         "embeddings_total": emb_count,
         "documents": [{"id": d.id, "filename": d.filename} for d in docs],
     }
+
+# ======================================================
+# 📜 Query History Endpoints
+# ======================================================
+@app.get("/query-history")
+def get_query_history(
+    limit: int = Query(20, description="Number of recent queries to retrieve"),
+    keyword: Optional[str] = Query(None, description="Optional keyword to filter queries")
+):
+    """
+    Retrieve query history with optional filtering and pagination.
+    
+    - If no keyword is provided, returns the most recent queries
+    - If a keyword is provided, searches for queries containing the keyword
+    """
+    from src.db.repositories.query_repository import QueryRepository
+    from src.db.models import Response
+
+    db = next(get_db())
+    query_repo = QueryRepository(db)
+
+    try:
+        if keyword:
+            queries = query_repo.search_by_keyword(keyword, limit)
+        else:
+            queries = query_repo.list_recent(limit)
+
+        # Transform queries to a more frontend-friendly format
+        history = []
+        for query in queries:
+            # Fetch the most recent response for this query
+            response = (
+                db.query(Response)
+                .filter(Response.query_id == query.id)
+                .order_by(Response.created_at.desc())
+                .first()
+            )
+
+            history.append({
+                "id": query.id,
+                "question": query.question,
+                "answer": response.answer if response else "Sem resposta",
+                "created_at": query.created_at.isoformat(),
+                "metadata": response.data if response else {}
+            })
+
+        return {
+            "total": len(history),
+            "queries": history
+        }
+    except Exception as e:
+        log_error(f"❌ Falha ao recuperar histórico de consultas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/query-history")
+def clear_query_history():
+    """
+    Clear entire query history.
+    
+    Requires careful consideration before use.
+    """
+    from src.db.repositories.query_repository import QueryRepository
+
+    db = next(get_db())
+    query_repo = QueryRepository(db)
+
+    try:
+        query_repo.clear_history()
+        log_success("✅ Histórico de consultas limpo com sucesso")
+        return {"message": "Histórico de consultas limpo com sucesso"}
+    except Exception as e:
+        log_error(f"❌ Falha ao limpar histórico de consultas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/query-history/{query_id}")
+def delete_query_by_id(query_id: int):
+    """
+    Delete a specific query from history by its ID.
+    """
+    from src.db.repositories.query_repository import QueryRepository
+
+    db = next(get_db())
+    query_repo = QueryRepository(db)
+
+    try:
+        success = query_repo.delete_by_id(query_id)
+        if success:
+            log_success(f"✅ Consulta {query_id} removida do histórico")
+            return {"message": f"Consulta {query_id} removida do histórico"}
+        else:
+            log_error(f"❌ Consulta {query_id} não encontrada")
+            raise HTTPException(status_code=404, detail="Consulta não encontrada")
+    except Exception as e:
+        log_error(f"❌ Falha ao remover consulta do histórico: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

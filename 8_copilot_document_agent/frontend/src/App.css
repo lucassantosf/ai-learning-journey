@@ -228,6 +228,50 @@ body {
   margin-bottom: 0;
 }
 
+.error-banner {
+  background-color: #ffebee;
+  color: #d32f2f;
+  padding: 1rem;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.error-banner p {
+  margin: 0;
+  flex-grow: 1;
+  margin-right: 1rem;
+}
+
+.error-banner button {
+  background-color: #d32f2f;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.error-banner button:hover {
+  background-color: #b71c1c;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .chat-messages-container {
   flex-grow: 1;
   overflow-y: auto;
@@ -270,6 +314,18 @@ body {
 .message.ai {
   background-color: #f8f9fa;
   color: var(--text-color);
+}
+
+.message.loading {
+  background-color: #f0f0f0;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.message.error {
+  background-color: #ffebee;
+  color: #d32f2f;
+  border-left: 4px solid #d32f2f;
 }
 
 .message-content {
@@ -505,5 +561,56 @@ body {
 
   .back-button {
     margin-bottom: 10px;
+  }
+}
+
+/* Metadata Styles for Query History */
+.metadata {
+  margin-top: 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.metadata-content {
+  display: grid;
+  grid-gap: 10px;
+}
+
+.metadata-item {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  align-items: flex-start;
+}
+
+.metadata-key {
+  font-weight: bold;
+  color: var(--text-color);
+  word-break: break-word;
+}
+
+.metadata-value {
+  background-color: #f1f3f5;
+  border-radius: 4px;
+  padding: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+  word-break: break-word;
+}
+
+.metadata-value pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  line-height: 1.4;
+}
+
+@media (max-width: 600px) {
+  .metadata-item {
+    grid-template-columns: 1fr;
+    grid-gap: 5px;
   }
 }

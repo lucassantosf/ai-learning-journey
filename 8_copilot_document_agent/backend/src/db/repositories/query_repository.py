@@ -24,46 +24,48 @@ class QueryRepository:
         answer: str,
         used_chunks: Optional[List[int]] = None,
         metadata: Optional[dict] = None,
-    ) -> models.QueryHistory:
+    ) -> models.Query:
         """
         Registra uma nova consulta no histórico.
         """
-        query = models.QueryHistory(
-            question=question,
-            answer=answer,
-            used_chunks=used_chunks or [],
-            metadata=metadata or {},
-        )
+        query = models.Query(question=question)
         self.db.add(query)
         self.db.commit()
         self.db.refresh(query)
+
+        # Adiciona a resposta associada à consulta
+        response = models.Response(
+            query_id=query.id, 
+            answer=answer, 
+            data=metadata or {}
+        )
+        self.db.add(response)
+        self.db.commit()
+
         return query
 
     # ======================================================
     # 🔍 Consulta
     # ======================================================
 
-    def get_by_id(self, query_id: int) -> Optional[models.QueryHistory]:
+    def get_by_id(self, query_id: int) -> Optional[models.Query]:
         """Busca uma consulta específica pelo ID."""
-        return self.db.query(models.QueryHistory).filter(models.QueryHistory.id == query_id).first()
+        return self.db.query(models.Query).filter(models.Query.id == query_id).first()
 
-    def list_recent(self, limit: int = 20) -> List[models.QueryHistory]:
+    def list_recent(self, limit: int = 20) -> List[models.Query]:
         """Lista as consultas mais recentes."""
         return (
-            self.db.query(models.QueryHistory)
-            .order_by(models.QueryHistory.created_at.desc())
+            self.db.query(models.Query)
+            .order_by(models.Query.created_at.desc())
             .limit(limit)
             .all()
         )
 
-    def search_by_keyword(self, keyword: str, limit: int = 20) -> List[models.QueryHistory]:
-        """Procura consultas que contenham uma palavra-chave na pergunta ou resposta."""
+    def search_by_keyword(self, keyword: str, limit: int = 20) -> List[models.Query]:
+        """Procura consultas que contenham uma palavra-chave na pergunta."""
         return (
-            self.db.query(models.QueryHistory)
-            .filter(
-                (models.QueryHistory.question.ilike(f"%{keyword}%"))
-                | (models.QueryHistory.answer.ilike(f"%{keyword}%"))
-            )
+            self.db.query(models.Query)
+            .filter(models.Query.question.ilike(f"%{keyword}%"))
             .limit(limit)
             .all()
         )
@@ -83,5 +85,5 @@ class QueryRepository:
 
     def clear_history(self):
         """Remove todo o histórico de consultas."""
-        self.db.query(models.QueryHistory).delete()
+        self.db.query(models.Query).delete()
         self.db.commit()

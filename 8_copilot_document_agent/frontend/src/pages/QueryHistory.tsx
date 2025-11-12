@@ -1,117 +1,192 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import ArrowLeftOutlined from '@ant-design/icons/lib/icons/ArrowLeftOutlined';
-
-interface HistoryItem {
-  id: string;
-  date: Date;
-  question: string;
-  answer: string;
-  feedback?: 'positive' | 'negative';
-}
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { 
+  getQueryHistory, 
+  deleteQueryHistoryItem, 
+  clearQueryHistory, 
+  type QueryHistoryItem 
+} from '../services/api';
 
 const QueryHistory: React.FC = () => {
-  const [history, setHistory] = useState<HistoryItem[]>([
-    // Simulated history items (will be replaced with actual backend data)
-    {
-      id: '1',
-      date: new Date(),
-      question: 'What is the main purpose of this document?',
-      answer: 'The document discusses key strategies for project management.',
-      feedback: undefined
-    },
-    {
-      id: '2',
-      date: new Date(),
-      question: 'Can you summarize the key points?',
-      answer: 'Here are the main points from the document...',
-      feedback: 'positive'
-    }
-  ]);
+  const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>([]);
+  const [selectedQuery, setSelectedQuery] = useState<QueryHistoryItem | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [keyword, setKeyword] = useState('');
 
-  const [selectedItem, setSelectedItem] = useState<HistoryItem | null>(null);
+  const fetchQueryHistory = async (searchKeyword?: string) => {
+    setIsLoading(true);
+    setError(null);
 
-  const handleItemClick = (item: HistoryItem) => {
-    setSelectedItem(item);
-  };
-
-  const handleFeedback = (feedback: 'positive' | 'negative') => {
-    if (selectedItem) {
-      setHistory(prev => 
-        prev.map(item => 
-          item.id === selectedItem.id 
-            ? { ...item, feedback } 
-            : item
-        )
-      );
-      setSelectedItem(prevItem => 
-        prevItem ? { ...prevItem, feedback } : null
-      );
+    try {
+      const response = await getQueryHistory(20, searchKeyword);
+      
+      if (response.success) {
+        setQueryHistory(response.data.queries);
+      } else {
+        setError(response.error || 'Erro ao buscar histórico');
+      }
+    } catch (err) {
+      setError('Erro inesperado ao buscar histórico');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const navigate = useNavigate();
+  useEffect(() => {
+    fetchQueryHistory();
+  }, []);
 
-  const handleGoBack = () => {
-    navigate('/');
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchQueryHistory(keyword);
+  };
+
+  const handleDeleteItem = async (queryId: number) => {
+    const confirmDelete = window.confirm('Tem certeza que deseja excluir esta consulta do histórico?');
+    
+    if (confirmDelete) {
+      try {
+        const response = await deleteQueryHistoryItem(queryId);
+        
+        if (response.success) {
+          // Remove the deleted item from the list
+          setQueryHistory(prev => prev.filter(query => query.id !== queryId));
+          
+          // Clear selected query if it was the deleted one
+          if (selectedQuery?.id === queryId) {
+            setSelectedQuery(null);
+          }
+        } else {
+          setError(response.error || 'Erro ao excluir item do histórico');
+        }
+      } catch (err) {
+        setError('Erro inesperado ao excluir item');
+        console.error(err);
+      }
+    }
+  };
+
+  const handleClearHistory = async () => {
+    const confirmClear = window.confirm('Tem certeza que deseja limpar todo o histórico de consultas?');
+    
+    if (confirmClear) {
+      try {
+        const response = await clearQueryHistory();
+        
+        if (response.success) {
+          setQueryHistory([]);
+          setSelectedQuery(null);
+        } else {
+          setError(response.error || 'Erro ao limpar histórico');
+        }
+      } catch (err) {
+        setError('Erro inesperado ao limpar histórico');
+        console.error(err);
+      }
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString('pt-BR', {
+      dateStyle: 'short',
+      timeStyle: 'short'
+    });
   };
 
   return (
     <div className="query-history-container">
       <div className="query-history-header">
-        <button 
-          className="back-button" 
-          onClick={handleGoBack}
-        >
-          <ArrowLeftOutlined /> Back to Home
-        </button>
-        <h2>Query History</h2>
-      </div>
-      
-      <div className="history-list">
-        {history.map((item) => (
-          <div 
-            key={item.id} 
-            className={`history-item ${selectedItem?.id === item.id ? 'selected' : ''}`}
-            onClick={() => handleItemClick(item)}
-          >
-            <div className="history-item-header">
-              <span className="date">{item.date.toLocaleString()}</span>
-              {item.feedback && (
-                <span className={`feedback ${item.feedback}`}>
-                  {item.feedback === 'positive' ? '👍' : '👎'}
-                </span>
-              )}
-            </div>
-            <p className="question">{item.question}</p>
-          </div>
-        ))}
+        <Link to="/" className="back-button">
+          <span className="back-button-icon">←</span>
+          Voltar para Início
+        </Link>
+        <h2>Histórico de Consultas</h2>
       </div>
 
-      {selectedItem && (
-        <div className="history-details">
-          <h3>Query Details</h3>
-          <div className="detail-content">
-            <p><strong>Question:</strong> {selectedItem.question}</p>
-            <p><strong>Answer:</strong> {selectedItem.answer}</p>
-            
-            <div className="feedback-section">
-              <p>Was this answer helpful?</p>
-              <div className="feedback-buttons">
+      <div className="query-history-actions">
+        <form onSubmit={handleSearch} className="search-form">
+          <input 
+            type="text" 
+            placeholder="Buscar por palavra-chave" 
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+          />
+          <button type="submit">Buscar</button>
+        </form>
+        {queryHistory.length > 0 && (
+          <button 
+            className="clear-history-button" 
+            onClick={handleClearHistory}
+          >
+            Limpar Histórico
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div className="error-banner">
+          <p>{error}</p>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="loading-spinner">Carregando...</div>
+      ) : queryHistory.length === 0 ? (
+        <div className="empty-history">
+          <p>Nenhuma consulta encontrada</p>
+        </div>
+      ) : (
+        <div className="history-list">
+          {queryHistory.map((query) => (
+            <div 
+              key={query.id} 
+              className={`history-item ${selectedQuery?.id === query.id ? 'selected' : ''}`}
+              onClick={() => setSelectedQuery(query)}
+            >
+              <div className="history-item-header">
+                <span className="date">{formatDate(query.created_at)}</span>
                 <button 
-                  onClick={() => handleFeedback('positive')}
-                  className={selectedItem.feedback === 'positive' ? 'selected' : ''}
+                  className="delete-item-button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteItem(query.id);
+                  }}
                 >
-                  👍 Yes
-                </button>
-                <button 
-                  onClick={() => handleFeedback('negative')}
-                  className={selectedItem.feedback === 'negative' ? 'selected' : ''}
-                >
-                  👎 No
+                  🗑️
                 </button>
               </div>
+              <p className="question">{query.question}</p>
             </div>
+          ))}
+        </div>
+      )}
+
+      {selectedQuery && (
+        <div className="history-details">
+          <h3>Detalhes da Consulta</h3>
+          <div className="detail-content">
+            <p><strong>Pergunta:</strong> {selectedQuery.question}</p>
+            <p><strong>Resposta:</strong> {selectedQuery.answer}</p>
+            <p><strong>Data:</strong> {formatDate(selectedQuery.created_at)}</p>
+            {selectedQuery.metadata && Object.keys(selectedQuery.metadata).length > 0 && (
+              <div className="metadata">
+                <strong>Metadados:</strong>
+                <div className="metadata-content">
+                  {Object.entries(selectedQuery.metadata).map(([key, value]) => (
+                    <div key={key} className="metadata-item">
+                      <span className="metadata-key">{key}:</span>
+                      <div className="metadata-value">
+                        {typeof value === 'object' 
+                          ? <pre>{JSON.stringify(value, null, 2)}</pre>
+                          : String(value)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
