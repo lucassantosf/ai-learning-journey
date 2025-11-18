@@ -1,0 +1,33 @@
+.challenge-input-container {
+  display: flex;
+  gap: var(--spacing-medium);
+  max-width: 800px;
+  margin: 0 auto;
+  background-color: white;
+  padding: var(--spacing-large);
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.challenge-input {
+  flex-grow: 1;
+}
+
+.challenge-submit {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+}
+
+.challenge-submit-icon {
+  width: 24px;
+  height: 24px;
+  margin-right: var(--spacing-small);
+}
+
+@media (max-width: 768px) {
+  .challenge-input-container {
+    flex-direction: column;
+    gap: var(--spacing-medium);
+  }
+}
