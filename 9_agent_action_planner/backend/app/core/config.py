@@ -1,12 +1,18 @@
-import os
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
+from pydantic import Field
+
+load_dotenv()
 
 class Settings(BaseSettings):
-    APP_NAME: str = "AgentFlow"
-    ENVIRONMENT: str = "development"
-    VERSION: str = "0.1.0"
+    # OpenAI
+    OPENAI_API_KEY: str = Field(..., env="OPENAI_API_KEY")
+    OPENAI_MODEL: str = Field("gpt-4o-mini", env="OPENAI_MODEL")
+
+    # SQLite / Database
+    DATABASE_URL: str = Field("sqlite:///./memory.db", env="DATABASE_URL")
 
     class Config:
         env_file = ".env"
 
-settings = Settings()
+settings = Settings() 

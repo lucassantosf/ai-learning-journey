@@ -1,54 +1,48 @@
 # Backend Project Structure
 
+
 ```
 backend/
 │
 ├── app/
-│   ├── __init__.py
 │   ├── main.py
 │   │
 │   ├── api/
-│   │   ├── __init__.py
-│   │   └── routes_health.py
+│   │   ├── routes_health.py
+│   │   └── routes_agent.py
 │   │
 │   ├── core/
-│   │   ├── __init__.py
 │   │   ├── config.py
-│   │   └── logging_config.py
+│   │   ├── logging_config.py
+│   │   └── dependencies.py         # <-- (NOVO: fornece agent_service, db, etc)
 │   │
 │   ├── models/
-│   │   ├── __init__.py
-│   │   └── base.py
+│   │   ├── base.py                 # Base do SQLAlchemy
+│   │   └── db_models.py            # <-- (NOVO: MemoryLog, Plan, Step)
 │   │
-│   └── services/
+│   ├── services/
+│   │   ├── agent_service.py        # Orquestrador
+│   │   ├── planner.py              # <-- (NOVO)
+│   │   ├── executor.py             # <-- (NOVO)
+│   │   ├── memory_sqlite.py        # <-- (NOVO)
+│   │   └── tool_registry.py        # <-- (NOVO: registry centralizado)
+│   │
+│   ├── tools/
+│   │   ├── base.py                 # Interface Tool
+│   │   ├── web_search.py           # Ferramenta simulada
+│   │   ├── calendar.py             # Ferramenta simulada
+│   │   └── compute.py              # <-- (NOVO: ferramenta de “cálculo”)
+│   │
+│   └── schemas/
 │       ├── __init__.py
-│       └── agent_service.py
+│       ├── plan.py                 # <-- (NOVO: Request/Response models)
+│       ├── step.py                 # <-- (NOVO)
+│       └── memory.py               # <-- (NOVO)
 │
-├── tests/
-│   ├── __init__.py
-│   └── test_health.py
-│
-├── tests_playground/
-│   └── langgraph/
-│       ├── __init__.py
-│       ├── agent_tools_router_09.py
-│       ├── final_agent_12.py
-│       ├── human_in_loop_11.py
-│       ├── langgraph_basic_03.py
-│       ├── memory_sqlite_01.py
-│       ├── model_router_08.py
-│       ├── multipass_subgraph_10.py
-│       ├── node_sharing_state_06.py
-│       ├── planner_executor_basic_02.py
-│       ├── planner_executor_with_memory_04.py
-│       ├── planner_executor_with_memory_05.py
-│       └── router_07.py
-│
-├── .env
-├── .env.example
-├── Dockerfile
-├── memory.db
+├── tests/ (igual)
+├── tests_playground/ (igual)
 ├── requirements.txt
+├── memory.db
 └── README.md
 ```
 
