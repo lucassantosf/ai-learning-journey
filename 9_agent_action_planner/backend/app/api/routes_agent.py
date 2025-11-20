@@ -25,11 +25,10 @@ class ExecuteRequest(BaseModel):
 
 @router.post("/plan")
 async def create_plan(
-    user_request: dict,
+    user_request: PlanRequest,
     agent: AgentService = Depends(get_agent_service)
 ):
-    return {"status": "healthy"}
-    return await agent.create_plan(user_request)
+    return await agent.create_plan(user_request.prompt)
 
 @router.post("/execute")
 async def execute_plan(

@@ -4,46 +4,71 @@
 ```
 backend/
 │
+├── .env
+├── .env.example
+├── Dockerfile
+├── memory.db
+├── README.md
+├── requirements.txt
+│
 ├── app/
+│   ├── __init__.py
 │   ├── main.py
 │   │
 │   ├── api/
-│   │   ├── routes_health.py
-│   │   └── routes_agent.py
+│   │   ├── __init__.py
+│   │   ├── routes_agent.py
+│   │   └── routes_health.py
 │   │
 │   ├── core/
+│   │   ├── __init__.py
 │   │   ├── config.py
-│   │   ├── logging_config.py
-│   │   └── dependencies.py         # <-- (NOVO: fornece agent_service, db, etc)
+│   │   ├── dependencies.py
+│   │   └── logging_config.py
 │   │
 │   ├── models/
-│   │   ├── base.py                 # Base do SQLAlchemy
-│   │   └── db_models.py            # <-- (NOVO: MemoryLog, Plan, Step)
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   └── db_models.py
+│   │
+│   ├── schemas/
+│   │   ├── __init__.py
+│   │   └── plan.py
 │   │
 │   ├── services/
-│   │   ├── agent_service.py        # Orquestrador
-│   │   ├── planner.py              # <-- (NOVO)
-│   │   ├── executor.py             # <-- (NOVO)
-│   │   ├── memory_sqlite.py        # <-- (NOVO)
-│   │   └── tool_registry.py        # <-- (NOVO: registry centralizado)
+│   │   ├── __init__.py
+│   │   ├── agent_service.py
+│   │   ├── executor.py
+│   │   ├── memory_sqlite.py
+│   │   └── planner.py
 │   │
-│   ├── tools/
-│   │   ├── base.py                 # Interface Tool
-│   │   ├── web_search.py           # Ferramenta simulada
-│   │   ├── calendar.py             # Ferramenta simulada
-│   │   └── compute.py              # <-- (NOVO: ferramenta de “cálculo”)
-│   │
-│   └── schemas/
+│   └── tools/
 │       ├── __init__.py
-│       ├── plan.py                 # <-- (NOVO: Request/Response models)
-│       ├── step.py                 # <-- (NOVO)
-│       └── memory.py               # <-- (NOVO)
+│       ├── base.py
+│       ├── calendar.py
+│       ├── compute.py
+│       └── web_search.py
 │
-├── tests/ (igual)
-├── tests_playground/ (igual)
-├── requirements.txt
-├── memory.db
-└── README.md
+├── tests/
+│   ├── __init__.py
+│   └── test_health.py
+│
+└── tests_playground/
+├── __init__.py
+└── langgraph/
+├── __init__.py
+├── agent_tools_router_09.py
+├── final_agent_12.py
+├── human_in_loop_11.py
+├── langgraph_basic_03.py
+├── memory_sqlite_01.py
+├── model_router_08.py
+├── multipass_subgraph_10.py
+├── node_sharing_state_06.py
+├── planner_executor_basic_02.py
+├── planner_executor_with_memory_04.py
+├── planner_executor_with_memory_05.py
+└── router_07.py
 ```
 
 ## Project Overview

@@ -1,35 +1,50 @@
-from functools import lru_cache
-from app.core.config import settings
+from fastapi import Depends
+
 from app.services.memory_sqlite import SQLiteMemory
 from app.services.planner import Planner
 from app.services.executor import Executor
 from app.services.agent_service import AgentService
 from app.models.base import get_db_session
+from app.core.config import settings
 
 
-@lru_cache
-def get_memory() -> SQLiteMemory:
-    return SQLiteMemory(settings.DATABASE_URL)
+# -----------------------------
+# SINGLETONS / CONFIG
+# -----------------------------
 
-
-@lru_cache
 def get_planner() -> Planner:
     return Planner(model_name=settings.OPENAI_MODEL)
 
 
-@lru_cache
-def get_executor() -> Executor:
-    db = next(get_db_session())
-    memory = get_memory()
+# -----------------------------
+# INSTÂNCIAS POR REQUEST
+# -----------------------------
+
+def get_memory(db = Depends(get_db_session)) -> SQLiteMemory:
+    """
+    A memória usa a MESMA sessão do banco.
+    """
+    return SQLiteMemory(db)
+
+
+def get_executor(
+    db = Depends(get_db_session),
+    memory: SQLiteMemory = Depends(get_memory)
+) -> Executor:
     return Executor(db=db, memory=memory)
 
 
-def get_agent_service() -> AgentService:
-    db = next(get_db_session())
+def get_agent_service(
+    db = Depends(get_db_session),
+    memory: SQLiteMemory = Depends(get_memory),
+    planner: Planner = Depends(get_planner),
+    executor: Executor = Depends(get_executor),
+) -> AgentService:
+
     return AgentService(
         db=db,
-        planner=get_planner(),
-        memory=get_memory(),
-        executor=get_executor(),
+        planner=planner,
+        memory=memory,
+        executor=executor,
         tools=[],
     )

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes_health import router as health_router
 from app.api.routes_agent import router as agent_router
-
+from app.models.base import Base, engine
 
 app = FastAPI(
     title="AgentFlow API",
@@ -30,3 +30,8 @@ app.include_router(agent_router, prefix="/api/v1/agent", tags=["Agent"])
 @app.get("/")
 def root():
     return {"status": "ok", "message": "AgentFlow API is running..."}
+
+@app.on_event("startup")
+def on_startup():
+    print("🔧 Creating database tables if they do not exist...")
+    Base.metadata.create_all(bind=engine)

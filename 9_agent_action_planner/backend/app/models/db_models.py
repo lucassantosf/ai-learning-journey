@@ -17,7 +17,8 @@ class Plan(Base):
     __tablename__ = "plan"
 
     id = Column(Integer, primary_key=True, index=True)
-    goal = Column(Text, nullable=False)
+    prompt = Column(Text, nullable=False)
+    status = Column(String(50), default="created")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     steps = relationship("Step", back_populates="plan", cascade="all, delete-orphan")
@@ -28,9 +29,10 @@ class Step(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     plan_id = Column(Integer, ForeignKey("plan.id"), nullable=False)
-    index = Column(Integer, nullable=False)
-    action = Column(String(255), nullable=False)
-    status = Column(String(50), default="pending")  # pending / running / done / error
+    order = Column(Integer, nullable=False)
+    description = Column(Text, nullable=False)
+    status = Column(String(50), default="pending")
     result = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     plan = relationship("Plan", back_populates="steps")
