@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from typing import Any, List, Dict
 from app.models.db_models import MemoryLog
+import json
 
 
 class SQLiteMemory:
@@ -15,11 +16,20 @@ class SQLiteMemory:
     # ---------------------------
     # Salvar logs
     # ---------------------------
-    def add_log(self, user_message: str, ai_response: Any = None):
+    def add_log(self, log_type: str, content: Any):
+        """
+        Salva um log no formato:
+        - type: string indicando o tipo (planner_output, step_result, etc)
+        - content: JSON ou string
+        """
+        if not isinstance(content, str):
+            content = json.dumps(content, ensure_ascii=False)
+
         log = MemoryLog(
-            user_message=str(user_message),
-            ai_response=str(ai_response)
+            type=log_type,
+            content=content
         )
+
         self.db.add(log)
         self.db.commit()
         self.db.refresh(log)
@@ -36,12 +46,18 @@ class SQLiteMemory:
             .all()
         )
 
-        return [
-            {
+        result = []
+        for log in logs:
+            try:
+                parsed = json.loads(log.content)
+            except:
+                parsed = log.content
+
+            result.append({
                 "id": log.id,
-                "user_message": log.user_message,
-                "ai_response": log.ai_response,
+                "type": log.type,
+                "content": parsed,
                 "created_at": log.created_at.isoformat(),
-            }
-            for log in logs
-        ]
+            })
+
+        return result

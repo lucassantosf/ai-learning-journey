@@ -19,7 +19,7 @@ class Executor:
     def __init__(self, db, memory):
         self.db = db
         self.memory = memory
-        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.1)
+        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, timeout=180)
 
         # Buffer para streaming (WebSocket)
         self._stream_buffer = []  # lista de dicts enviados incrementalmente
@@ -66,7 +66,7 @@ class Executor:
 
         # Executar ferramenta ou usar LLM direto
         if tool:
-            result = await tool.execute(step.description)
+            result = await tool.run(step.description)
         else:
             # Execução direto via modelo
             result = await self._run_llm(step.description)
@@ -95,7 +95,7 @@ class Executor:
         Retorna a ferramenta ou None.
         """
 
-        tools = ToolRegistry.list_tools()
+        tools = ToolRegistry.all()
         tool_names = ", ".join(tools.keys())
 
         system_prompt = (

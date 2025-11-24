@@ -8,8 +8,8 @@ class MemoryLog(Base):
     __tablename__ = "memory_log"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_message = Column(Text, nullable=False)
-    ai_response = Column(Text, nullable=True)
+    type = Column(String(50), nullable=False)
+    content = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
