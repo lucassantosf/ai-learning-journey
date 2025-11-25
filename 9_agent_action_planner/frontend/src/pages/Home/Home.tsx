@@ -1,8 +1,22 @@
-import React from 'react'
+import React, { useState } from 'react'
 import ChallengeInput from '../../components/ChallengeInput'
 import PlanDisplay from '../../components/PlanDisplay'
 
 export default function Home() {
+  const [currentPlan, setCurrentPlan] = useState<{
+    plan_id: number;
+    status: string;
+    steps: string[];
+  } | null>(null);
+
+  const handlePlanCreated = (plan: {
+    plan_id: number;
+    status: string;
+    steps: string[];
+  }) => {
+    setCurrentPlan(plan);
+  };
+
   return (
     <div className="container" style={{ 
       maxWidth: '1200px', 
@@ -44,11 +58,11 @@ export default function Home() {
         gap: '1.5rem'
       }}>
         <section>
-          <ChallengeInput />
+          <ChallengeInput onPlanCreated={handlePlanCreated} />
         </section>
 
         <section>
-          <PlanDisplay />
+          {currentPlan && <PlanDisplay plan={currentPlan} />}
         </section>
       </main>
 
