@@ -34,14 +34,14 @@
 }
 
 .stepItem {
+  position: relative;
   display: flex;
-  align-items: center;
-  margin-bottom: 1rem;
+  flex-direction: column;
   background-color: white;
   border-radius: 8px;
-  padding: 1rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
+  margin-bottom: 1rem;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .stepItem:hover {
@@ -134,8 +134,8 @@
 .stepHeader {
   display: flex;
   align-items: center;
+  padding: 1rem;
   cursor: pointer;
-  padding: 0.5rem;
   transition: background-color 0.3s ease;
 }
 
@@ -149,14 +149,35 @@
 }
 
 .expandIcon {
-  margin-left: 1rem;
-  font-size: 0.8rem;
-  color: #666;
+  margin-left: auto;
+  transition: transform 0.3s ease;
+}
+
+.expandIcon.rotated {
+  transform: rotate(180deg);
 }
 
 .stepDetails {
+  width: 100%;
   background-color: #f9f9f9;
   padding: 1rem;
-  border-radius: 0 0 8px 8px;
-  overflow: hidden;
+  border-top: 1px solid #e9ecef;
+}
+
+.stepResultContent {
+  background-color: white;
+  border-radius: 8px;
+  padding: 1rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.stepResultContent strong {
+  color: #333;
+}
+
+.stepResultContent ul {
+  padding-left: 1.5rem;
 }

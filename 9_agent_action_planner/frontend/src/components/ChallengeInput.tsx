@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { AgentService } from '../services/agentService';
 import styles from './ChallengeInput.module.css';
-import { motion } from 'framer-motion'; // Adicione esta biblioteca para animações suaves
+import { motion } from 'framer-motion';
 
 interface ChallengeInputProps {
   onPlanCreated: (plan: { 
     plan_id: number; 
     status: string;
     steps: string[] 
-  }) => void;
+  }, challenge: string) => void;
 }
 
 const ChallengeInput: React.FC<ChallengeInputProps> = ({ onPlanCreated }) => {
@@ -31,8 +31,9 @@ const ChallengeInput: React.FC<ChallengeInputProps> = ({ onPlanCreated }) => {
       const planResponse = await AgentService.createPlan(challenge);
       
       if (planResponse && planResponse.status === 'created') {
-        onPlanCreated(planResponse);
-        setChallenge('');
+        // Passa o desafio junto com o plano
+        onPlanCreated(planResponse, challenge);
+        // Não limpa mais o input
       } else {
         throw new Error('Não foi possível criar o plano');
       }

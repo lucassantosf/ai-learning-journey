@@ -162,8 +162,15 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ plan }) => {
                   animate={{ opacity: 1, height: 'auto' }}
                   transition={{ duration: 0.3 }}
                 >
-                  {/* Aqui você pode adicionar detalhes adicionais do passo */}
-                  <p>Detalhes do passo {step.step} serão exibidos aqui.</p>
+                  {/* Substituir o placeholder por uma renderização condicional */}
+                  {step.result ? (
+                    <div 
+                      className={styles.stepResultContent}
+                      dangerouslySetInnerHTML={{ __html: step.result.replace(/\n/g, '<br/>') }}
+                    />
+                  ) : (
+                    <p>Nenhum detalhe adicional disponível para este passo.</p>
+                  )}
                 </motion.div>
               )}
             </motion.li>

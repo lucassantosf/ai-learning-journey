@@ -25,6 +25,18 @@ interface WebSocketMessage {
   timestamp: string;
 }
 
+interface MemoryEntry {
+  id: number;
+  type: string;
+  content: {
+    plan_id?: number;
+    prompt?: string;
+    step?: number;
+    description?: string;
+  };
+  created_at?: string;
+}
+
 export const AgentService = {
   // Método para criar um plano
   async createPlan(prompt: string): Promise<PlanResponse> {
@@ -48,15 +60,9 @@ export const AgentService = {
     }
   },
 
-  // Método para obter o histórico de memória
-  async getMemory(): Promise<MemoryResponse> {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/memory`);
-      return response.data;
-    } catch (error) {
-      console.error('Erro ao buscar memória:', error);
-      throw error;
-    }
+  async getMemory(): Promise<{ memory: MemoryEntry[] }> {
+    const response = await axios.get(`${API_BASE_URL}/memory`);
+    return response.data;
   },
 
   // Método para conexão WebSocket (progresso em tempo real)

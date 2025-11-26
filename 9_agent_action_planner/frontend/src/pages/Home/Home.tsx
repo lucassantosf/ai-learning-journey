@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import ChallengeInput from '../../components/ChallengeInput'
 import PlanDisplay from '../../components/PlanDisplay'
+import { Link } from 'react-router-dom';
 
 export default function Home() {
   const [currentPlan, setCurrentPlan] = useState<{
@@ -9,12 +10,15 @@ export default function Home() {
     steps: string[];
   } | null>(null);
 
+  const [currentChallenge, setCurrentChallenge] = useState<string | null>(null);
+
   const handlePlanCreated = (plan: {
     plan_id: number;
     status: string;
     steps: string[];
-  }) => {
+  }, challenge: string) => {
     setCurrentPlan(plan);
+    setCurrentChallenge(challenge);
   };
 
   return (
@@ -62,7 +66,12 @@ export default function Home() {
         </section>
 
         <section>
-          {currentPlan && <PlanDisplay plan={currentPlan} />}
+          {currentPlan && (
+            <PlanDisplay 
+              plan={currentPlan} 
+              challenge={currentChallenge} 
+            />
+          )}
         </section>
       </main>
 
@@ -75,6 +84,17 @@ export default function Home() {
         <p>
           Powered by AI | Simplifying Complex Challenges
         </p>
+        <Link 
+          to="/memory" 
+          style={{ 
+            color: 'var(--primary-color)', 
+            textDecoration: 'none',
+            marginTop: '0.5rem',
+            display: 'inline-block' 
+          }}
+        >
+          Ver Histórico de Memória
+        </Link>
       </footer>
     </div>
   )

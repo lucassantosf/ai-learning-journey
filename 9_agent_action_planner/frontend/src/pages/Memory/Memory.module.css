@@ -1,0 +1,117 @@
+.memoryContainer {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.backLink {
+  text-decoration: none;
+  color: #4a90e2;
+  margin-right: 1rem;
+  display: flex;
+  align-items: center;
+}
+
+.memoryList {
+  list-style-type: none;
+  padding: 0;
+}
+
+.memoryItem {
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.memoryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.timestamp {
+  color: #666;
+  font-size: 0.8rem;
+  align-self: flex-end;
+  margin-top: 0.5rem;
+}
+
+.memorySteps ul {
+  padding-left: 1.5rem;
+}
+
+.loadingContainer, .errorContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #4a90e2;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.memoryContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}  
+ 
+
+.planMemoryGroup {
+  background-color: #f9f9f9;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.planHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 0.5rem;
+}
+
+.planPrompt {
+  background-color: #f0f0f0;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  font-style: italic;
+}
+
+.planEntries {
+  list-style-type: none;
+  padding: 0;
+}
+
+.planEntry {
+  background-color: white;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
