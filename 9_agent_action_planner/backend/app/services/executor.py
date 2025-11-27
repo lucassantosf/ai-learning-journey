@@ -27,25 +27,14 @@ class Executor:
     # ------------------------------------------
     # STREAMING PARA O WEBSOCKET
     # ------------------------------------------
-    async def stream(self) -> AsyncGenerator[Dict[str, Any], None]:
-        """
-        Generator: retorna eventos em tempo real.
-        O AgentService chama isso.
-        """
-        last_index = 0
-        while True:
-            if last_index < len(self._stream_buffer):
-                event = self._stream_buffer[last_index]
-                last_index += 1
-                yield event
-            else:
-                # aguarda async (evita busy loop)
-                import asyncio
-                await asyncio.sleep(0.1)
-
     def _push_stream(self, event: Dict[str, Any]):
-        """Adiciona evento no buffer para o WebSocket."""
+        """
+        Adiciona evento no buffer para o WebSocket.
+        Adiciona logs para debug.
+        """
+        print(f"Adicionando evento ao buffer: {event}")  # Log de debug
         self._stream_buffer.append(event)
+        print(f"Buffer após adição: {self._stream_buffer}")  # Log de estado do buffer
 
     # ------------------------------------------
     # EXECUTAR UM ÚNICO PASSO
@@ -53,39 +42,117 @@ class Executor:
     async def run_step(self, step: Step) -> Dict[str, Any]:
         """
         Executa um passo usando LLM + ferramentas.
+        Envia eventos de progresso via WebSocket.
         """
+        # Log de início da execução do passo
+        print(f"Iniciando execução do passo {step.order}")
 
+        # Evento de início do passo - IMPORTANTE: Garantir que seja adicionado ao buffer
         self._push_stream({
             "type": "step_start",
             "step": step.order,
-            "description": step.description
+            "description": step.description,
+            "timestamp": datetime.utcnow().isoformat(),
+            "details": {
+                "plan_id": step.plan_id,
+                "total_steps": getattr(step, 'total_steps', None)
+            }
         })
+        print(f"Evento de início do passo {step.order} adicionado ao buffer")
 
-        # Identificar qual ferramenta usar
-        tool = await self._select_tool(step.description)
+        try:
+            # Evento de progresso inicial
+            self._push_stream({
+                "type": "step_progress",
+                "step": step.order,
+                "progress": "25%",
+                "message": "Preparando execução do passo...",
+                "timestamp": datetime.utcnow().isoformat()
+            })
+            print(f"Evento de progresso inicial do passo {step.order} adicionado ao buffer")
 
-        # Executar ferramenta ou usar LLM direto
-        if tool:
-            result = await tool.run(step.description)
-        else:
-            # Execução direto via modelo
-            result = await self._run_llm(step.description)
+            # Identificar ferramenta
+            tool = await self._select_tool(step.description)
+            print(f"Ferramenta selecionada para o passo {step.order}: {tool}")
 
-        # Atualizar o banco de dados
-        step.status = "completed"
-        step.result = result
-        step.updated_at = datetime.utcnow()
-        self.db.commit()
+            # Evento de seleção de ferramenta
+            self._push_stream({
+                "type": "step_progress",
+                "step": step.order,
+                "progress": "50%",
+                "message": f"Ferramenta selecionada: {tool.__class__.__name__ if tool else 'Nenhuma'}",
+                "timestamp": datetime.utcnow().isoformat()
+            })
+            print(f"Evento de seleção de ferramenta do passo {step.order} adicionado ao buffer")
 
-        # Enviar evento ao WebSocket
-        self._push_stream({
-            "type": "step_complete",
-            "step": step.order,
-            "result": result
-        })
+            # Execução da ferramenta ou LLM
+            if tool:
+                result = await tool.run(step.description)
+            else:
+                result = await self._run_llm(step.description)
+            
+            print(f"Resultado do passo {step.order}: {result}")
 
-        return result
+            # Evento de conclusão do passo
+            self._push_stream({
+                "type": "step_complete",
+                "step": step.order,
+                "result": result,
+                "status": "success",
+                "timestamp": datetime.utcnow().isoformat()
+            })
+            print(f"Evento de conclusão do passo {step.order} adicionado ao buffer")
 
+            return result
+
+        except Exception as e:
+            error_message = str(e)
+            print(f"Erro no passo {step.order}: {error_message}")
+
+            # Evento de erro
+            self._push_stream({
+                "type": "step_error",
+                "step": step.order,
+                "error": error_message,
+                "status": "failed",
+                "timestamp": datetime.utcnow().isoformat()
+            })
+            print(f"Evento de erro do passo {step.order} adicionado ao buffer")
+
+            raise
+
+    async def stream(self) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        Generator: retorna eventos em tempo real.
+        """
+        print("Método stream() iniciado. Buffer inicial:", self._stream_buffer)
+        
+        last_index = 0
+        while True:
+            # Log detalhado do estado atual
+            print(f"Estado atual - Último índice: {last_index}, Tamanho do buffer: {len(self._stream_buffer)}")
+
+            if last_index < len(self._stream_buffer):
+                event = self._stream_buffer[last_index]
+                print(f"Enviando evento: {event}")
+                last_index += 1
+                yield event
+            else:
+                # Heartbeat com mais informações
+                heartbeat = {
+                    "type": "heartbeat",
+                    "message": "Mantendo conexão ativa",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "buffer_size": len(self._stream_buffer),
+                    "last_index": last_index
+                }
+                print(f"Enviando heartbeat: {heartbeat}")
+                yield heartbeat
+                
+                # Aguardar um pouco antes de verificar novamente
+                import asyncio
+                await asyncio.sleep(0.5)
+    
     # ------------------------------------------
     # SELECIONAR FERRAMENTA AUTOMATICAMENTE
     # ------------------------------------------

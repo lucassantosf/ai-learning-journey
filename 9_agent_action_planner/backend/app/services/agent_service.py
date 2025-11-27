@@ -230,12 +230,24 @@ class AgentService:
         Repasse do stream do executor.
         Útil para SSE / Websockets.
         """
+        print("stream_execution_updates iniciado...")  # Log de debug
 
         if not hasattr(self.executor, "stream"):
+            print("Executor não suporta streaming!")  # Log de erro
             raise RuntimeError("Executor does not support streaming")
 
-        async for event in self.executor.stream():
-            yield event
+        try:
+            async for event in self.executor.stream():
+                print(f"Evento recebido: {event}")  # Log de cada evento
+                yield event
+
+        except Exception as e:
+            print(f"Erro durante stream_execution_updates: {e}")  # Log de erro
+            yield {
+                'type': 'stream_error',
+                'error': str(e),
+                'timestamp': datetime.utcnow().isoformat()
+            }
 
     # ------------------------------------------------------
     # AUTO-REFLEXÃO (simples)

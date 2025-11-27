@@ -67,7 +67,13 @@ async def ws_progress(
     """
     await websocket.accept()
     try:
+        print("WebSocket conexão aceita. Iniciando stream...")  # Log de debug
+        
         async for update in agent.stream_execution_updates():
+            print(f"Enviando update via WebSocket: {update}")  # Log de debug
             await websocket.send_json(update)
     except WebSocketDisconnect:
         print("WebSocket disconnected")
+    except Exception as e:
+        print(f"Erro no WebSocket: {e}")
+        # Pode adicionar mais tratamento de erro aqui

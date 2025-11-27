@@ -31,6 +31,7 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ plan }) => {
   const [executionResults, setExecutionResults] = useState<PlanStep[] | null>(null);
   const [expandedSteps, setExpandedSteps] = useState<{ [key: number]: boolean }>({});
 
+
   const handleExecutePlan = async () => {
     setIsExecuting(true);
     setExecutionProgress([]);
@@ -39,41 +40,96 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ plan }) => {
     setExecutionResults(null);
     setExpandedSteps({});
 
-    try {
+    return new Promise<void>((resolve, reject) => {
+      // Criar um socket para receber atualizações em tempo real
       const socket = AgentService.connectToProgressWebSocket(
         (update) => {
-          setExecutionProgress(prev => [...prev, update.message]);
-          
-          const stepMatch = update.message.match(/Passo (\d+)/);
-          if (stepMatch) {
-            setCurrentStep(parseInt(stepMatch[1], 10) - 1);
+          // Log para debug
+          console.log('WebSocket Update:', update);
+
+          // Tratar diferentes tipos de eventos do WebSocket
+          switch (update.type) {
+            case 'step_start':
+              setExecutionProgress(prev => [
+                ...prev, 
+                `Iniciando Passo ${update.step}: ${update.description || ''}`
+              ]);
+              setCurrentStep(update.step ? update.step - 1 : null);
+              break;
+
+            case 'step_progress':
+              setExecutionProgress(prev => [
+                ...prev, 
+                `Progresso Passo ${update.step}: ${update.message || update.progress || ''}`
+              ]);
+              setCurrentStep(update.step ? update.step - 1 : null);
+              break;
+
+            case 'step_complete':
+              setExecutionProgress(prev => [
+                ...prev, 
+                `Passo ${update.step} concluído`
+              ]);
+              break;
+
+            case 'step_error':
+              setExecutionProgress(prev => [
+                ...prev, 
+                `Erro no Passo ${update.step}: ${update.error || 'Erro desconhecido'}`
+              ]);
+              break;
+
+            default:
+              // Mensagens genéricas de progresso
+              if (update.message) {
+                setExecutionProgress(prev => [...prev, update.message]);
+              }
           }
         },
+        // Callback de abertura do socket - CHAVE PRINCIPAL
         () => {
+          // Iniciar execução do plano APÓS o socket estar aberto
           AgentService.executePlan(plan.plan_id)
             .then((response: ExecuteResponse) => {
+              // Atualizar resultados da execução
               setExecutionResults(response.result.results);
+              resolve();
             })
             .catch(error => {
               setExecutionError('Erro ao executar o plano');
               console.error(error);
+              reject(error);
             });
         },
+        // Callback de fechamento do socket
         () => {
           setIsExecuting(false);
+          resolve();
         },
+        // Callback de erro do socket
         (error) => {
           setExecutionError('Erro na conexão WebSocket');
           setIsExecuting(false);
+          reject(error);
         }
       );
 
-    } catch (error) {
-      console.error('Erro ao executar plano:', error);
-      setExecutionError('Não foi possível iniciar a execução do plano');
-      setIsExecuting(false);
-    }
+      // Configurar timeout para evitar execuções muito longas
+      const timeoutId = setTimeout(() => {
+        setExecutionError('Tempo limite de execução excedido');
+        setIsExecuting(false);
+        socket.close();
+        reject(new Error('Timeout'));
+      }, 60000); // 60 segundos
+
+      // Limpar timeout quando a execução terminar
+      socket.onclose = () => {
+        clearTimeout(timeoutId);
+      };
+    });
   };
+
+  
 
   useEffect(() => {
     if (executionResults) {
