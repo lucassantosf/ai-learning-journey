@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AgentService } from '../services/agentService';
 import styles from './PlanDisplay.module.css';
@@ -6,6 +6,7 @@ import styles from './PlanDisplay.module.css';
 interface PlanStep {
   step: number;
   description: string;
+  result?: string;
 }
 
 interface PlanDisplayProps {
@@ -30,15 +31,17 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ plan }) => {
   const [executionError, setExecutionError] = useState<string | null>(null);
   const [executionResults, setExecutionResults] = useState<PlanStep[] | null>(null);
   const [expandedSteps, setExpandedSteps] = useState<{ [key: number]: boolean }>({});
+  const [stepDetails, setStepDetails] = useState<{ [key: number]: any }>({});
 
-
-  const handleExecutePlan = async () => {
+  const handleExecutePlan = useCallback(async () => {
+    // Reset all state
     setIsExecuting(true);
     setExecutionProgress([]);
     setCurrentStep(null);
     setExecutionError(null);
     setExecutionResults(null);
     setExpandedSteps({});
+    setStepDetails({});
 
     return new Promise<void>((resolve, reject) => {
       // Criar um socket para receber atualizações em tempo real
@@ -55,6 +58,17 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ plan }) => {
                 `Iniciando Passo ${update.step}: ${update.description || ''}`
               ]);
               setCurrentStep(update.step ? update.step - 1 : null);
+              
+              // Atualizar detalhes do passo
+              if (update.step) {
+                setStepDetails(prev => ({
+                  ...prev,
+                  [update.step]: {
+                    description: update.description,
+                    status: 'started'
+                  }
+                }));
+              }
               break;
 
             case 'step_progress':
@@ -63,6 +77,19 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ plan }) => {
                 `Progresso Passo ${update.step}: ${update.message || update.progress || ''}`
               ]);
               setCurrentStep(update.step ? update.step - 1 : null);
+              
+              // Atualizar progresso do passo
+              if (update.step) {
+                setStepDetails(prev => ({
+                  ...prev,
+                  [update.step]: {
+                    ...(prev[update.step] || {}),
+                    progress: update.progress,
+                    message: update.message,
+                    status: 'in_progress'
+                  }
+                }));
+              }
               break;
 
             case 'step_complete':
@@ -70,17 +97,42 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ plan }) => {
                 ...prev, 
                 `Passo ${update.step} concluído`
               ]);
+              
+              // Atualizar resultado do passo
+              if (update.step) {
+                setStepDetails(prev => ({
+                  ...prev,
+                  [update.step]: {
+                    ...(prev[update.step] || {}),
+                    result: update.result,
+                    status: 'completed'
+                  }
+                }));
+              }
               break;
 
             case 'step_error':
-              setExecutionProgress(prev => [
-                ...prev, 
-                `Erro no Passo ${update.step}: ${update.error || 'Erro desconhecido'}`
-              ]);
+              const errorMessage = `Erro no Passo ${update.step}: ${update.error || 'Erro desconhecido'}`;
+              setExecutionProgress(prev => [...prev, errorMessage]);
+              
+              // Atualizar erro do passo
+              if (update.step) {
+                setStepDetails(prev => ({
+                  ...prev,
+                  [update.step]: {
+                    ...(prev[update.step] || {}),
+                    error: update.error,
+                    status: 'failed'
+                  }
+                }));
+              }
+              break;
+
+            case 'stream_error':
+              setExecutionError(`Erro no stream: ${update.error}`);
               break;
 
             default:
-              // Mensagens genéricas de progresso
               if (update.message) {
                 setExecutionProgress(prev => [...prev, update.message]);
               }
@@ -116,20 +168,19 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ plan }) => {
 
       // Configurar timeout para evitar execuções muito longas
       const timeoutId = setTimeout(() => {
-        setExecutionError('Tempo limite de execução excedido');
+        const detailedError = 'Tempo limite de execução excedido. Verifique a conexão ou a complexidade do plano.';
+        setExecutionError(detailedError);
         setIsExecuting(false);
         socket.close();
-        reject(new Error('Timeout'));
-      }, 60000); // 60 segundos
+        reject(new Error(detailedError));
+      }, 120000); // 2 minutos
 
       // Limpar timeout quando a execução terminar
       socket.onclose = () => {
         clearTimeout(timeoutId);
       };
     });
-  };
-
-  
+  }, [plan.plan_id]);
 
   useEffect(() => {
     if (executionResults) {
@@ -218,7 +269,6 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ plan }) => {
                   animate={{ opacity: 1, height: 'auto' }}
                   transition={{ duration: 0.3 }}
                 >
-                  {/* Substituir o placeholder por uma renderização condicional */}
                   {step.result ? (
                     <div 
                       className={styles.stepResultContent}

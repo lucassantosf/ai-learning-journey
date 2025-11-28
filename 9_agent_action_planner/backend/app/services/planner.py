@@ -17,59 +17,88 @@ class Planner:
     async def generate_plan(self, prompt: str) -> Dict[str, List[str]]:
         """
         Gera um plano com steps detalhados.
-        Retorna estrutura:
+        Estrutura:
         {
             "steps": ["Passo 1 ...", "Passo 2 ..."]
         }
         """
 
         system_prompt = (
-            "Você é um planejador profissional. "
-            "Dado um objetivo, você deve gerar um plano curto, claro, objetivo, "
-            "composto por uma lista de etapas numeradas. "
-            "Cada etapa deve ser direta e começar com um verbo no infinitivo."
+            "Você é um planejador extremamente objetivo. "
+            "Transforme o objetivo do usuário em uma lista de passos numerados, "
+            "curtos, claros e sempre iniciados com um verbo no infinitivo. "
+            "Responda apenas com a lista de etapas, uma por linha."
         )
 
-        user_prompt = f"Objetivo do usuário: {prompt}\n\nGere um plano com passos curtos e claros."
+        user_prompt = (
+            f"Objetivo do usuário: {prompt}\n\n"
+            "Gere um plano estruturado, com etapas claras, diretas e no infinitivo. "
+            "Uma etapa por linha."
+        )
 
         response = await self.llm.ainvoke([
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ])
 
-        content = response.content.strip()
+        content = (response.content or "").strip()
 
-        # -------------------------------
-        # Extrair steps — simples e robusto
-        # -------------------------------
-        extracted_steps = []
-        for line in content.split("\n"):
-            clean = line.strip()
+        # ---------------------------------------
+        # Extração robusta de steps
+        # ---------------------------------------
+        extracted_steps: List[str] = []
 
-            if not clean:
+        for raw in content.split("\n"):
+            line = raw.strip()
+            if not line:
                 continue
 
-            # Aceita:
-            # 1. Fazer X
-            # 2) Fazer Y
-            # - Fazer Z
-            # Passo 1: ...
-            if (
-                clean[0].isdigit()
-                or clean.startswith("-")
-                or clean.lower().startswith("passo")
+            # Detecta linhas de passo válidas
+            is_step = (
+                line[0].isdigit() or
+                line.startswith("-") or
+                line.lower().startswith("passo")
+            )
+
+            # Se o modelo gerou algo fora do padrão, ainda assim tentamos aproveitar
+            if not is_step:
+                # Se não parece passo, mas contém verbo no infinitivo → aceita
+                if " " in line and line.split()[0].endswith("r"):
+                    extracted_steps.append(line)
+                continue
+
+            # Remove prefixos comuns
+            clean = line
+            clean = clean.lstrip("-").strip()
+            clean = clean.replace("Passo", "").replace("passo", "")
+            clean = clean.replace(":", "").strip()
+
+            # Remove padrões como "1.", "1)", "1-" etc
+            while clean and (
+                clean[0].isdigit() or clean[0] in [".", ")", "-", ":"]
             ):
-                # Remove prefixos
-                clean = clean.lstrip("-").strip()
-                clean = clean.replace("Passo", "").replace(":", "").strip()
-                # Remove "1." ou "1)" ou "1 -"
-                while clean and (clean[0].isdigit() or clean[0] in [".", ")", "-"]):
-                    clean = clean[1:].strip()
+                clean = clean[1:].strip()
 
-            extracted_steps.append(clean)
+            # Final sanitização
+            if clean:
+                extracted_steps.append(clean)
 
-        # Garantir que haja pelo menos um passo
+        # ---------------------------------------
+        # Garantia absoluta de que sempre haverá passos
+        # ---------------------------------------
         if not extracted_steps:
-            extracted_steps = ["Analisar objetivo.", "Criar passos apropriados.", "Executar plano."]
+            extracted_steps = [
+                "Analisar objetivo.",
+                "Criar etapas apropriadas.",
+                "Executar plano."
+            ]
 
-        return {"steps": extracted_steps}
+        # Remover duplicatas mantendo ordem
+        final_steps = []
+        seen = set()
+        for s in extracted_steps:
+            if s not in seen:
+                seen.add(s)
+                final_steps.append(s)
+
+        return {"steps": final_steps}

@@ -28,17 +28,14 @@ def get_planner() -> Planner:
     return planner_singleton
 
 
-def get_executor(
-    db=Depends(get_db_session),
-    memory: SQLiteMemory = Depends(get_memory)
-) -> Executor:
-    """
-    Executor NÃO PODE ser singleton.
-    Ele depende de db, memory e usa stream_buffer interno.
-    Logo deve ser instância por request.
-    """
-    return Executor(db=db, memory=memory)
+executor_singleton = None
+agent_service_singleton = None
 
+def get_executor(db=Depends(get_db_session), memory: SQLiteMemory = Depends(get_memory)):
+    global executor_singleton
+    if executor_singleton is None:
+        executor_singleton = Executor(db=db, memory=memory)
+    return executor_singleton
 
 # ============================================================
 # AGENT SERVICE
@@ -50,14 +47,13 @@ def get_agent_service(
     memory: SQLiteMemory = Depends(get_memory),
     executor: Executor = Depends(get_executor),
 ):
-    """
-    AgentService pode ser criado por request — é leve.
-    Ele só faz orquestração.
-    """
-    return AgentService(
-        db=db,
-        planner=planner,
-        memory=memory,
-        executor=executor,
-        tools=[],
-    )
+    global agent_service_singleton
+    if agent_service_singleton is None:
+        agent_service_singleton = AgentService(
+            db=db,
+            planner=planner,
+            memory=memory,
+            executor=executor,
+            tools=[]
+        )
+    return agent_service_singleton

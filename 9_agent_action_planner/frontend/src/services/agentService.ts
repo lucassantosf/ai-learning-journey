@@ -70,7 +70,7 @@ export const AgentService = {
   },
 
   // Método para conexão WebSocket (progresso em tempo real)
-  // Atualizar a interface para incluir mais tipos de eventos
+  // Atualização do método connectToProgressWebSocket
   connectToProgressWebSocket(
     onMessage: (data: WebSocketMessage) => void, 
     onOpen?: () => void, 
@@ -81,8 +81,17 @@ export const AgentService = {
     
     // Configurações para reconexão automática
     let reconnectAttempts = 0;
-    const MAX_RECONNECT_ATTEMPTS = 3;
+    const MAX_RECONNECT_ATTEMPTS = 5;
     const RECONNECT_DELAY = 3000; // 3 segundos
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+
+    // Função para limpar timeout de reconexão
+    const clearReconnectTimeout = () => {
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+      }
+    };
 
     socket.onopen = () => {
       console.group('WebSocket Connection');
@@ -90,7 +99,10 @@ export const AgentService = {
       console.log('Ready State:', socket.readyState);
       console.groupEnd();
       
-      reconnectAttempts = 0; // Resetar tentativas de reconexão
+      // Resetar tentativas de reconexão
+      reconnectAttempts = 0;
+      clearReconnectTimeout();
+      
       if (onOpen) onOpen();
     };
 
@@ -99,9 +111,9 @@ export const AgentService = {
         console.group('WebSocket Message');
         console.log('Raw message:', event.data);
         
-        const data: WebSocketMessage = JSON.parse(event.data);
+        const data = JSON.parse(event.data);
         
-        // Normalização do evento
+        // Normalização mais robusta do evento
         const normalizedEvent: WebSocketMessage = {
           type: data.type || 'generic',
           message: data.message || '',
@@ -109,11 +121,31 @@ export const AgentService = {
           step: data.step,
           description: data.description,
           progress: data.progress,
-          error: data.error
+          error: data.error,
+          result: data.result
         };
 
         console.log('Parsed message:', normalizedEvent);
         console.groupEnd();
+        
+        // Filtrar e logar eventos específicos
+        switch (normalizedEvent.type) {
+          case 'step_start':
+            console.log(`Starting step ${normalizedEvent.step}: ${normalizedEvent.description}`);
+            break;
+          case 'step_progress':
+            console.log(`Progress for step ${normalizedEvent.step}: ${normalizedEvent.progress || normalizedEvent.message}`);
+            break;
+          case 'step_complete':
+            console.log(`Step ${normalizedEvent.step} completed`);
+            break;
+          case 'step_error':
+            console.error(`Error in step ${normalizedEvent.step}: ${normalizedEvent.error}`);
+            break;
+          case 'stream_error':
+            console.error('Stream error:', normalizedEvent.error);
+            break;
+        }
         
         onMessage(normalizedEvent);
       } catch (error) {
@@ -130,12 +162,15 @@ export const AgentService = {
     socket.onclose = (event) => {
       console.log('WebSocket connection closed:', event);
       
-      // Lógica de reconexão automática
+      // Lógica de reconexão automática com backoff exponencial
       if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         reconnectAttempts++;
-        console.log(`Tentando reconectar (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+        const delay = RECONNECT_DELAY * Math.pow(2, reconnectAttempts);
         
-        setTimeout(() => {
+        console.log(`Tentando reconectar (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}) em ${delay}ms...`);
+        
+        clearReconnectTimeout();
+        reconnectTimeout = setTimeout(() => {
           console.log('Reconectando WebSocket...');
           const newSocket = AgentService.connectToProgressWebSocket(
             onMessage, 
@@ -143,7 +178,9 @@ export const AgentService = {
             onClose, 
             onError
           );
-        }, RECONNECT_DELAY);
+        }, delay);
+      } else {
+        console.error('Máximo de tentativas de reconexão excedido');
       }
 
       if (onClose) onClose();
@@ -153,12 +190,12 @@ export const AgentService = {
     (socket as any).sendMessage = (message: string) => {
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ message }));
+      } else {
+        console.warn('Cannot send message. WebSocket is not open.');
       }
     };
 
     return socket;
   }
-
-  
 
 };

@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional, AsyncGenerator
 from datetime import datetime
 from sqlalchemy.orm import Session
+import asyncio
 
 from app.services.planner import Planner
 from app.services.executor import Executor
@@ -10,9 +11,8 @@ from app.models.db_models import Plan, Step
 
 class AgentService:
     """
-    Serviço orquestrador principal.
+    Orquestrador principal.
     Coordena Planner → Banco → Executor → Memória.
-    Direto para a API.
     """
 
     def __init__(
@@ -29,7 +29,10 @@ class AgentService:
         self.executor = executor
         self.tools = tools or []
 
-        # Integra ferramentas no executor, caso ele suporte
+        # Task de execução do plano atual
+        self._current_execution_task: Optional[asyncio.Task] = None
+
+        # Integra ferramentas
         if hasattr(self.executor, "set_tools"):
             self.executor.set_tools(self.tools)
 
@@ -37,10 +40,6 @@ class AgentService:
     # PLANEJAMENTO
     # ------------------------------------------------------
     async def create_plan(self, prompt: str) -> Dict[str, Any]:
-        """
-        Gera um plano via LLM, salva no banco e registra memória.
-        """
-
         generated = await self.planner.generate_plan(prompt)
 
         try:
@@ -51,8 +50,6 @@ class AgentService:
                     status="created"
                 )
                 self.db.add(plan)
-
-                # flush para garantir que plan.id exista antes de criar steps
                 self.db.flush()
 
                 for idx, text in enumerate(generated["steps"], start=1):
@@ -65,8 +62,7 @@ class AgentService:
                     )
                     self.db.add(step)
 
-            # Log na memória (persistência auxiliar)
-            # Guarda o plan gerado (estrutura) e o prompt
+            # Log na memória
             self.memory.add_log("planner_output", {
                 "plan_id": plan.id,
                 "prompt": prompt,
@@ -80,7 +76,6 @@ class AgentService:
             }
 
         except Exception as e:
-            # tentativa de rollback caso algo falhe
             try:
                 self.db.rollback()
             except Exception:
@@ -92,8 +87,9 @@ class AgentService:
     # ------------------------------------------------------
     async def execute_plan(self, plan_id: int) -> Dict[str, Any]:
         """
-        Executa todos os steps de um plano de forma sequencial,
-        registrando status/resultado/reflexões em memória.
+        NÃO executa os steps diretamente.
+        Apenas dispara uma task assíncrona no executor,
+        permitindo que o streaming aconteça em paralelo.
         """
 
         plan = self.db.query(Plan).filter_by(id=plan_id).first()
@@ -106,160 +102,95 @@ class AgentService:
             .order_by(Step.order.asc())
             .all()
         )
-
         if not steps:
             return {"error": "Plan has no steps"}
 
-        execution_results = []
-
-        # marca o plano como em progresso
+        # Atualiza status
         plan.status = "in_progress"
         plan.updated_at = datetime.utcnow()
         self.db.commit()
 
-        try:
-            for step in steps:
-                # --- antes de executar: marcar running e logar evento ---
-                step.status = "running"
-                step.updated_at = datetime.utcnow()
+        # Se já existe uma task anterior, cancelamos
+        if self._current_execution_task and not self._current_execution_task.done():
+            self._current_execution_task.cancel()
+
+        # --- AGORA SIM: execução real rodando em paralelo ---
+        async def _run_and_store():
+            try:
+                for step in steps:
+                    # Marca início
+                    step.status = "running"
+                    step.updated_at = datetime.utcnow()
+                    self.db.commit()
+
+                    try:
+                        result = await self.executor.run_step(step)
+
+                        step.status = "completed"
+                        step.result = (
+                            result if isinstance(result, str) else str(result)
+                        )
+                        step.updated_at = datetime.utcnow()
+                        self.db.commit()
+
+                    except Exception as step_err:
+                        step.status = "failed"
+                        step.result = str(step_err)
+                        step.updated_at = datetime.utcnow()
+                        self.db.commit()
+                        continue
+
+                # Finaliza plano
+                plan.status = "completed"
+                plan.updated_at = datetime.utcnow()
                 self.db.commit()
 
-                self.memory.add_log("step_started", {
-                    "plan_id": plan_id,
-                    "step": step.order,
-                    "description": step.description,
-                    "timestamp": datetime.utcnow().isoformat()
-                })
-
-                # executar passo (executor deve retornar string / dict / qualquer)
+            except Exception as e:
                 try:
-                    result = await self.executor.run_step(step)
+                    self.db.rollback()
+                except Exception:
+                    pass
+                print(f"[AgentService] Erro interno na execução do plano: {e}")
 
-                    # salvar resultado e status
-                    step.status = "completed"
-                    step.result = result if isinstance(result, str) else str(result)
-                    step.updated_at = datetime.utcnow()
-                    self.db.commit()
+            finally:
+                # IMPORTANTE: avisa executor para parar o stream
+                self.executor.close_stream()
 
-                    # log por step
-                    self.memory.add_log("step_result", {
-                        "plan_id": plan_id,
-                        "step": step.order,
-                        "description": step.description,
-                        "result": result,
-                        "timestamp": datetime.utcnow().isoformat()
-                    })
+        # Cria a task assíncrona que rodará em paralelo ao WebSocket
+        self._current_execution_task = asyncio.create_task(_run_and_store())
 
-                    execution_results.append({
-                        "step": step.order,
-                        "description": step.description,
-                        "result": result
-                    })
-
-                    # auto-reflexão simples para step concluído
-                    reflection = self._simple_reflection(step, result, success=True)
-                    self.memory.add_log("reflection", reflection)
-
-                except Exception as step_err:
-                    # marca falha no step
-                    step.status = "failed"
-                    step.result = str(step_err)
-                    step.updated_at = datetime.utcnow()
-                    self.db.commit()
-
-                    # log de falha
-                    self.memory.add_log("step_failed", {
-                        "plan_id": plan_id,
-                        "step": step.order,
-                        "description": step.description,
-                        "error": str(step_err),
-                        "timestamp": datetime.utcnow().isoformat()
-                    })
-
-                    execution_results.append({
-                        "step": step.order,
-                        "description": step.description,
-                        "error": str(step_err)
-                    })
-
-                    # auto-reflexão simples para step com erro
-                    reflection = self._simple_reflection(step, str(step_err), success=False)
-                    self.memory.add_log("reflection", reflection)
-
-                    # continuar para próximos steps (não abortar)
-                    continue
-
-            # finaliza plano
-            plan.status = "completed"
-            plan.updated_at = datetime.utcnow()
-            self.db.commit()
-
-            # Log geral na memória
-            self.memory.add_log("execution_summary", {
-                "plan_id": plan_id,
-                "results": execution_results,
-                "completed_at": datetime.utcnow().isoformat()
-            })
-
-            return {
-                "plan_id": plan_id,
-                "results": execution_results
-            }
-
-        except Exception as e:
-            try:
-                self.db.rollback()
-            except Exception:
-                pass
-            raise RuntimeError(f"Error while executing plan {plan_id}: {e}")
+        return {
+            "plan_id": plan_id,
+            "status": "started",
+            "message": "Execução iniciada. Veja progressos via WebSocket."
+        }
 
     # ------------------------------------------------------
     # MEMÓRIA
     # ------------------------------------------------------
     def get_memory(self) -> List[Dict[str, Any]]:
-        """
-        Retorna logs do SQLiteMemory.
-        """
         return self.memory.get_logs()
 
     # ------------------------------------------------------
-    # STREAMING (caso executor suporte)
+    # STREAMING
     # ------------------------------------------------------
     async def stream_execution_updates(self) -> AsyncGenerator[Dict[str, Any], None]:
         """
-        Repasse do stream do executor.
-        Útil para SSE / Websockets.
+        Apenas repassa o stream do executor.
         """
-        print("stream_execution_updates iniciado...")  # Log de debug
+        print("[AgentService] stream_execution_updates iniciado...")
 
         if not hasattr(self.executor, "stream"):
-            print("Executor não suporta streaming!")  # Log de erro
             raise RuntimeError("Executor does not support streaming")
 
-        try:
-            async for event in self.executor.stream():
-                print(f"Evento recebido: {event}")  # Log de cada evento
-                yield event
-
-        except Exception as e:
-            print(f"Erro durante stream_execution_updates: {e}")  # Log de erro
-            yield {
-                'type': 'stream_error',
-                'error': str(e),
-                'timestamp': datetime.utcnow().isoformat()
-            }
+        async for event in self.executor.stream():
+            print(f"[AgentService] Evento → {event}")
+            yield event
 
     # ------------------------------------------------------
-    # AUTO-REFLEXÃO (simples)
+    # AUTO-REFLEXÃO (preservado)
     # ------------------------------------------------------
     def _simple_reflection(self, step: Step, result: Any, success: bool) -> Dict[str, Any]:
-        """
-        Gera uma reflexão simples baseada no resultado do step.
-        Regras:
-         - se success True => breve nota do que deu certo
-         - se success False => razão curta do erro + sugestão básica
-        """
-        # Normaliza resultado para string curta
         if isinstance(result, str):
             rtext = result
         else:
@@ -273,7 +204,6 @@ class AgentService:
             suggestion = "No immediate action required."
         else:
             summary = f"Step {step.order} failed."
-            # heurística simples para sugerir ação
             if "timeout" in rtext.lower():
                 suggestion = "Consider increasing timeout or retry later."
             elif "error" in rtext.lower() or "traceback" in rtext.lower():
